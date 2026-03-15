@@ -12,7 +12,6 @@ def run_pipeline(teams):
             stats = get_github_metrics(member["github"])
             member["metrics"]= stats
             all_metrics.append(stats)
-            
             maxima = compute_dataset_maxima(all_metrics)
             member["G_i"] = compute_gi(member["metrics"], maxima)
 
