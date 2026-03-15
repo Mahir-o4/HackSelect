@@ -3,19 +3,21 @@ import requests
 from datetime import datetime, timedelta
 
 
-TOKEN = os.getenv("GITHUB_TOKEN")
-HEADERS = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
 
-
+def get_headers():
+    TOKEN = os.getenv("GITHUB_TOKEN")
+    return {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+    
 def get_github_metrics(username):
 
+    HEADERS = get_headers()
     repos_url = f"https://api.github.com/users/{username}/repos?per_page=100"
     events_url = f"https://api.github.com/users/{username}/events/public"
 
     repos = requests.get(repos_url, headers=HEADERS).json()
     events = requests.get(events_url, headers=HEADERS).json()
 
-    if isinstance(repos, dict):  # error case
+    if isinstance(repos, dict):  # error case   
         return None
 
     total_repos = len(repos)
