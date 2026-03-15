@@ -1,3 +1,5 @@
+from app.services.github_service import get_github_metrics
+
 def run_pipeline(teams):
     print("Pipeline started...\n")
 
@@ -5,8 +7,8 @@ def run_pipeline(teams):
         print(f"Processing Team {team['team_id']} ({team['team_name']})")
 
         for member in team["members"]:
-            print("  Member:", member["name"],
-                  "| GitHub:", member["github"])
+            stats = get_github_metrics(member["github"])
+            print(member["name"], stats)
 
     print("\nPipeline finished.")
 
