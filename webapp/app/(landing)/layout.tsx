@@ -1,9 +1,6 @@
-import "./globals.css"
+import Navbar from "@/components/landing/Navbar"
+import "../globals.css"
 import { ReactNode } from "react"
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata = {
   title: "HackSelect",
@@ -16,8 +13,9 @@ export default function RootLayout({
   children: ReactNode
 }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className="font-sans ">
       <body className="bg-black text-white">
+        <Navbar />
         {children}
       </body>
     </html>
