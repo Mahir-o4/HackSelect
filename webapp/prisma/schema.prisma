@@ -76,3 +76,167 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+
+
+
+
+
+
+
+
+model Team {
+  teamId    String   @id
+  teamName  String?
+  createdAt DateTime @default(now())
+
+  participant Participant[]
+  teamFeature TeamFeature?
+  teamResult  TeamResult?
+  teamSummary TeamSummary?
+
+  @@map("team")
+}
+
+model Participant {
+  participantId Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+
+  name           String
+  githubUsername String?
+  linkedInURL    String?
+  resumeURL      String?
+  phNumber       String?
+  email          String?
+
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  githubProfile GithubProfile?
+  githubRepo    GithubRepo[]
+  resume        Resume?
+  memberScore   MemberScore?
+
+  @@map("participant")
+}
+
+model GithubProfile {
+  participantId Int @id
+
+  totalRepos      Int?
+  originalRepos   Int?
+  totalStars      Int?
+  totalForks      Int?
+  uniqueLanguages Int?
+  pushEvents      Int?
+  prEvents        Int?
+  issueEvents     Int?
+  createEvents    Int?
+  recentUpdates   Int?
+  activityRaw     Float?
+  activityScore   Float?
+
+  fetchedAt DateTime @default(now())
+
+  participant Participant @relation(fields: [participantId], references: [participantId], onDelete: Cascade)
+
+  @@map("githubProfile")
+}
+
+model GithubRepo {
+  repoId BigInt  @id
+  name   String?
+
+  isFork   Boolean?
+  stars    Int?
+  forks    Int?
+  language String?
+
+  pushedAt DateTime?
+
+  participantId Int?
+  participant   Participant? @relation(fields: [participantId], references: [participantId], onDelete: Cascade)
+
+  @@map("githubRepo")
+}
+
+model Resume {
+  participantId Int @id
+
+  rawText     String?
+  resumeScore Float?
+  parsedJSON  Json?
+
+  processedAt DateTime @default(now())
+
+  participant Participant @relation(fields: [participantId], references: [participantId], onDelete: Cascade)
+
+  @@map("resume")
+}
+
+model MemberScore {
+  participantId Int @id
+
+  gI Float?
+  rI Float?
+  cI Float?
+
+  computedAt DateTime @default(now())
+
+  participant Participant @relation(fields: [participantId], references: [participantId], onDelete: Cascade)
+
+  @@map("memberScore")
+}
+
+model TeamFeature {
+  teamId String @id
+
+  f1  Float?
+  f2  Float?
+  f3  Float?
+  f4  Float?
+  f5  Float?
+  f6  Float?
+  f7  Float?
+  f8  Float?
+  f9  Float?
+  f10 Float?
+  f11 Float?
+  f12 Float?
+  f13 Float?
+  f14 Float?
+  f15 Float?
+  f16 Float?
+  f17 Float?
+
+  computedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  @@map("teamFeature")
+}
+
+model TeamResult {
+  teamId String @id
+
+  clusterLabel Int?
+  level        String?
+  teamScore    Float?
+  selected     Boolean  @default(false)
+  computedAt   DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  @@map("teamResult")
+}
+
+model TeamSummary {
+  teamId String @id
+
+  summaryText String?
+  generatedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  @@map("teamSummary")
+}

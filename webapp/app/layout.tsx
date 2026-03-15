@@ -3,7 +3,10 @@ import { ReactNode } from "react"
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Lora, IBM_Plex_Mono } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "sonner";
 
 export const metadata = {
   title: "HackSelect",
@@ -16,8 +19,12 @@ export default function RootLayout({
   children: ReactNode
 }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className="bg-black text-white">
+    <html lang="en">
+      <body className={`${fontSans.variable} ${fontSerif.variable} ${fontMono.variable} antialiased`}>
+        <Toaster 
+        position="top-right"
+        closeButton
+        />
         {children}
       </body>
     </html>
