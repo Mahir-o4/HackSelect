@@ -104,7 +104,10 @@ model Participant {
 
   name           String
   githubUsername String?
+  linkedInURL    String?
   resumeURL      String?
+  phNumber       String?
+  email          String?
 
   teamId String?
   team   Team?   @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
