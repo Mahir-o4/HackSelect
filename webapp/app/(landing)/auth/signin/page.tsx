@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { signInEmailAction } from "@/actions/signInEmail.action"
 import Link from "next/link"
+import ParticlesBackground from "@/components/landing/ParticlesBackground"
 
 const SignIn = () => {
     const [isPending, setIsPending] = useState(false)
@@ -39,7 +40,9 @@ const SignIn = () => {
     }
 
     return (
+
         <div className="w-screen h-screen flex justify-center items-center">
+        <ParticlesBackground></ParticlesBackground>
             <Card className="w-full max-w-sm">
                 <CardHeader>
                     <CardTitle>Signin to your account</CardTitle>
