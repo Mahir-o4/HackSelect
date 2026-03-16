@@ -1,0 +1,436 @@
+[
+  {
+    "team_id": "165f1e6dc6w9",
+    "team_name": "AlgoNova",
+    "members": [
+      {
+        "name": "Abress Siddique",
+        "github": "abressiddique",
+        "resume_url": "https://drive.google.com/file/d/1BcUv17XnOohlneUVyaQKl_YghffMnrRz/view",
+        "linkedin": "https://www.linkedin.com/in/abressiddique/",
+        "email": "abressiddique@gmail.com",
+        "phone": "7816984998"
+      },
+      {
+        "name": "Madhav Gadge",
+        "github": "madhavgadge01",
+        "resume_url": "https://drive.google.com/file/d/1tpg7ruU9hV_bzFGwGS4POKmnkx1TzPBC/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/madhav-gadge-610177343?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app",
+        "email": "madhavgadge01@gmail.com",
+        "phone": "98745 12036"
+      },
+      {
+        "name": "DHIMAN TARAFDAR",
+        "github": "DhimanTarafdar",
+        "resume_url": "https://drive.google.com/file/d/1tpg7ruU9hV_bzFGwGS4POKmnkx1TzPBC/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/dhiman-tarafdar-44bb03315/",
+        "email": "dhiman.coderhub@gmail.com",
+        "phone": "91234 76508"
+      },
+      {
+        "name": "Mohit Kumhar",
+        "github": "mohitkumhar",
+        "resume_url": "https://drive.google.com/file/d/1KzwaBQDLzPosLfrkPIcFboxTQf5R9H7D/view",
+        "linkedin": "https://www.linkedin.com/in/mohitkumhar/",
+        "email": "mohitmolela@gmail.com",
+        "phone": "90321 55674"
+      }
+    ]
+  },
+  {
+    "team_id": "a5d1a65sc1a6",
+    "team_name": "NotAlgoNova",
+    "members": [
+      {
+        "name": "Ayush Dutta",
+        "github": "Spirizeon",
+        "resume_url": "https://drive.google.com/file/d/10C8yXizGEM0EPzeFQ_yV3hgeuBH26hiE/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/ayushduttasrmap/",
+        "email": "dutta_ayush@srmap.edu.in",
+        "phone": "99871 34092"
+      },
+      {
+        "name": "Divya Saxena",
+        "github": "divysaxena24",
+        "resume_url": "https://drive.google.com/file/d/17cQoTHMDgAZbGEIzybHWGtMhFeRn6038/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/divyasaxena24/",
+        "email": "divysaxena2402@gmail.com",
+        "phone": "93450 88217"
+      },
+      {
+        "name": "Yuvaraj Tankala",
+        "github": "yuvaraj-06",
+        "resume_url": "https://yuvaraj-06.github.io/portfolio/YUVARAJCV2021.pdf",
+        "linkedin": "https://www.linkedin.com/in/yuvaraj-tankala-725822194/",
+        "email": "yuvaraj.codespace@gmail.com",
+        "phone": "90128 77634"
+      },
+      {
+        "name": "Pankaj Yadav",
+        "github": "pankajydv07",
+        "resume_url": "https://drive.google.com/file/d/1iybW5B9J1ZeaJg9jRTgnSR1RTmQ3qd9F/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/pankaj-yadav08/",
+        "email": "pankaj.devnetwork@gmail.com",
+        "phone": "96721 45903"
+      }
+    ]
+  },
+  {
+    "team_id": "s4f98ewr1g9d",
+    "team_name": "CenterFresh",
+    "members": [
+      {
+        "name": "Vraj Ved",
+        "github": "VrajVed",
+        "resume_url": "https://drive.google.com/file/d/1kaWfkwmHP775H0m56G2sBDdf_wy06s_T/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/vrajved/",
+        "email": "ved.aj.vraj@gmail.com",
+        "phone": "90987 56124"
+      },
+      {
+        "name": "Rituparna Warwatkar",
+        "github": "rituparna-ui",
+        "resume_url": "https://rituu.com/assets/resume.pdf",
+        "linkedin": "https://www.linkedin.com/in/rituparna-warwatkar/",
+        "email": "rituu@amazon.de",
+        "phone": "98124 67035"
+      }
+    ]
+  },
+  {
+    "team_id": "w64f98we1f6k",
+    "team_name": "CenterNotFresh",
+    "members": [
+      {
+        "name": "Abhijit Bhattacharjee",
+        "github": "Proxyy587",
+        "resume_url": "https://drive.google.com/file/d/14exElGA3VaK3_fxsJKuKQlm6z4lRQI0R/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/abhijit-bh/",
+        "email": "abhijit.devstream@gmail.com",
+        "phone": "95673 21498"
+      },
+      {
+        "name": "Chetan Chaudhari",
+        "github": "chetanchaudhari789",
+        "resume_url": "https://drive.google.com/file/d/1ebRc_YhNcUAqpFjC3TW79robmnM1ZJdb/view",
+        "linkedin": "https://www.linkedin.com/in/chetan789/",
+        "email": "chetanchaudhari9371@gmail.com",
+        "phone": "7768014471"
+      },
+      {
+        "name": "Lakshay Choudhary",
+        "github": "unlux",
+        "resume_url": "https://drive.google.com/file/d/10q0ARW6Oq2eR3W2VsWYa4c08Vj8vp7DX/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/unlux/",
+        "email": "lakshay.codenode@gmail.com",
+        "phone": "9610202227"
+      }
+    ]
+  },
+  {
+    "team_id": "w4f98w198wx5",
+    "team_name": "CaptainGoGo",
+    "members": [
+      {
+        "name": "Vineet Agarwal",
+        "github": "VineeTagarwaL-code",
+        "resume_url": "https://drive.google.com/file/d/1dhaLKHvZE1apa5dnDszoKZiF1vkXDxhf/view",
+        "linkedin": "https://www.linkedin.com/in/vineetagarwal2004/",
+        "email": "vineetagarwal.now@gmail.com",
+        "phone": "8617000910"
+      },
+      {
+        "name": "Subhadip Saha",
+        "github": "subh05sus",
+        "resume_url": "https://drive.google.com/file/d/13I9k5IhgwKHJ7pvjyp_L150729wAGk-S/view",
+        "linkedin": "https://www.linkedin.com/in/subhadipsahaofficial/",
+        "email": "sahasubhadip54@gmail.com",
+        "phone": "8653462940"
+      },
+      {
+        "name": "HARAJIT",
+        "github": "HARAJIT05",
+        "resume_url": "https://drive.google.com/file/d/1MbGJLWZkY84dYgw5SLFu4FOr-iCq-ni3/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/harajit-das-a89786235/",
+        "email": "harajithub@gmail.com",
+        "phone": "6295517205"
+      }
+    ]
+  },
+  {
+    "team_id": "ds65a1fcw6c8",
+    "team_name": "OpenML Force",
+    "members": [
+      {
+        "name": "Niels Rogge",
+        "github": "NielsRogge",
+        "resume_url": "https://drive.google.com/file/d/1kGBxh0YvuWaT_yx-55PIq9XcHTOuOOrD/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/niels-rogge-a3b7a3127/",
+        "email": "niels.codenode@gmail.com",
+        "phone": "98810 45326"
+      },
+      {
+        "name": "Fabiana Campanari",
+        "github": "FabianaCampanari",
+        "resume_url": "https://drive.google.com/file/d/13EVXPNSCBWRZSYqDfxAuHBK4B3qLVZUV/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/fabiana-campanari/",
+        "email": "fabiana.buildcode@gmail.com",
+        "phone": "97541 20876"
+      },
+      {
+        "name": "Ahmed Mohamed",
+        "github": "3bsalam-1",
+        "resume_url": "https://drive.google.com/file/d/1DO8At9gG4FrpnHH-sqjad8tvTy7mOL9S/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/ahmed-3bsalam/",
+        "email": "ahamed.devforge@gmail.com",
+        "phone": "90276 88931"
+      }
+    ]
+  },
+  {
+    "team_id": "1cwds1c54wa8",
+    "team_name": "HomeCore",
+    "members": [
+      {
+        "name": "Franck Nijhof",
+        "github": "frenck",
+        "resume_url": "https://drive.google.com/file/d/15c6JebVmeIL_KQ1r0i0EsV0fiSwq-Anf/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/frenck/",
+        "email": "frenck.devspace@gmail.com",
+        "phone": "94018 67255"
+      },
+      {
+        "name": "Alfi Maulana",
+        "github": "threeal",
+        "resume_url": "https://drive.google.com/file/d/1bigyE7jsd8FKWGBCOjRkxosXKZximqHr/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/alfi-maulana/",
+        "email": "alfi.coderoom@gmail.com",
+        "phone": "97123 50674"
+      }
+    ]
+  },
+  {
+    "team_id": "4dscs616sd17",
+    "team_name": "NuxtCraft",
+    "members": [
+      {
+        "name": "Daniel Roe",
+        "github": "danielroe",
+        "resume_url": "https://drive.google.com/file/d/1aPDb2uvNKhxxNqD2lESj9s5vYAVSLnGx/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/daniel-roe/",
+        "email": "daniel.techbuilder@gmail.com",
+        "phone": "96540 78321"
+      },
+      {
+        "name": "Ahmad Awais",
+        "github": "ahmadawais",
+        "resume_url": "https://drive.google.com/file/d/1SROGYQCAmtH_NOIep_j81vVS_kRCnE5j/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/mrahmadawais/",
+        "email": "ahmad.rahulspace@gmail.com",
+        "phone": "98741 20563"
+      },
+      {
+        "name": "Solomon Kassa",
+        "github": "Solomonkassa",
+        "resume_url": "https://drive.google.com/file/d/1v_z3_HQmS5TVZgzSrdvlTKKITt-X8m1T/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/solomonkassa/",
+        "email": "solomon.buildcode@gmail.com",
+        "phone": "91237 84650"
+      }
+    ]
+  },
+  {
+    "team_id": "sdf2c1d5v167",
+    "team_name": "QuantaAI",
+    "members": [
+      {
+        "name": "Tam Nguyen Duc",
+        "github": "tamnd",
+        "resume_url": "https://drive.google.com/file/d/1h9RcVFO35cYam35WrwI6WvWiFMa0cOEq/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/tam-nguyen-duc/",
+        "email": "coder.tamhub@gmail.com",
+        "phone": "90328 57146"
+      },
+      {
+        "name": "Martin Costello",
+        "github": "martincostello",
+        "resume_url": "https://drive.google.com/file/d/1CLDtsTsC87ghQvUYJfeXERLOCEOsaEJj/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/martin-costello-dev/",
+        "email": "martin.devlogic@gmail.com",
+        "phone": "99870 41325"
+      }
+    ]
+  },
+  {
+    "team_id": "00fuckfuck00",
+    "team_name": "DataStream",
+    "members": [
+      {
+        "name": "Marian Steinbach",
+        "github": "marians",
+        "resume_url": "https://drive.google.com/file/d/17o9fWTMN0YE8yrQMJBbSWpfzTVX8fevU/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/marian-steinbach-dev/",
+        "email": "marian.techcoder@gmail.com",
+        "phone": "93451 76082"
+      },
+      {
+        "name": "Alejandro Falkowski",
+        "github": "alexfalkowski",
+        "resume_url": "https://drive.google.com/file/d/1STdf05SQAsXM9S5JCSRJIcl1rg9NBzC0/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/alejandro-falkowski/",
+        "email": "alex.programnest@gmail.com",
+        "phone": "90129 66438"
+      },
+      {
+        "name": "Przemyslaw Klys",
+        "github": "PrzemyslawKlys",
+        "resume_url": "https://drive.google.com/file/d/1oVsqKSN4UVem07YMtrBlopYnj5-7PZ-L/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/przemyslaw-klys/",
+        "email": "prezmy.devcraft@gmail.com",
+        "phone": "96722 15849"
+      }
+    ]
+  },
+  {
+    "team_id": "2wfdw63512qw",
+    "team_name": "CyberShield",
+    "members": [
+      {
+        "name": "Chris Gianelloni",
+        "github": "wolf31o2",
+        "resume_url": "https://drive.google.com/file/d/10lV76VbB4Q0MszAOocYiF4BJE7JQBxyZ/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/chris-gianelloni/",
+        "email": "chris.codelabs@gmail.com",
+        "phone": "90988 74516"
+      },
+      {
+        "name": "Levvie",
+        "github": "ItzLevvie",
+        "resume_url": "https://drive.google.com/file/d/1JGeVMxkHCsgiDSoea_9VmNY-HyaYy7bE/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/levvie-dev/",
+        "email": "levvie.techverse@gmail.com",
+        "phone": "98126 30475"
+      }
+    ]
+  },
+  {
+    "team_id": "64sdf16d165s",
+    "team_name": "WebWeavers",
+    "members": [
+      {
+        "name": "Bevan Kay",
+        "github": "bevanjkay",
+        "resume_url": "https://drive.google.com/file/d/1ZfU4qMukIu6yp0VW2YgphOloewbcq2j0/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/bevan-kay/",
+        "email": "bevan.devnode@gmail.com",
+        "phone": "95672 48190"
+      },
+      {
+        "name": "Klaus Hipp",
+        "github": "khipp",
+        "resume_url": "https://drive.google.com/file/d/143XvuzfuVFdVhBU__Rx4x_urlY4hDlbx/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/klaus-hipp/",
+        "email": "klaus.buildhub@gmail.com",
+        "phone": "98813 62754"
+      },
+      {
+        "name": "Romi Muharom",
+        "github": "Leuthra",
+        "resume_url": "https://drive.google.com/file/d/1cSDDBA5zP7z1oQ-JJiYov1v6z2MsO-J_/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/romi-muharom/",
+        "email": "romi.codestack@gmail.com",
+        "phone": "97540 21836"
+      },
+      {
+        "name": "Mohannad Otaibi",
+        "github": "mo9a7i",
+        "resume_url": "https://drive.google.com/file/d/1Ufg0MzfqR6gkBiOaWU83IjtkNhdQpzAk/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/mohannad-otaibi/",
+        "email": "mohannad.techflow@gmail.com",
+        "phone": "90277 88904"
+      }
+    ]
+  },
+  {
+    "team_id": "1wef6d1cw32e",
+    "team_name": "SciCompute",
+    "members": [
+      {
+        "name": "Sul Kassam",
+        "github": "Sulstice",
+        "resume_url": "https://drive.google.com/file/d/1PZp78AzbObK7c37DF215aCKaLrNHS14w/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/sulstice/",
+        "email": "sul.devforge@gmail.com",
+        "phone": "94019 56327"
+      },
+      {
+        "name": "Kristof Kaehler",
+        "github": "baby636",
+        "resume_url": "https://drive.google.com/file/d/1n93MI6HeTM-enj9bzIzTCbnLig9i21kx/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/kristof-kaehler/",
+        "email": "kristof.codecore@gmail.com",
+        "phone": "97124 70658"
+      },
+      {
+        "name": "Arran Ubels",
+        "github": "arran4",
+        "resume_url": "https://drive.google.com/file/d/1_TbW1gM8IrESN3dpKg3DqSac2AqytIF-/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/arran-ubels/",
+        "email": "arran.devspace@gmail.com",
+        "phone": "96541 33279"
+      }
+    ]
+  },
+  {
+    "team_id": "s21dfc6w5acw",
+    "team_name": "NodeNexus",
+    "members": [
+      {
+        "name": "Alex Unnippillil",
+        "github": "Alex-Unnippillil",
+        "resume_url": "https://drive.google.com/file/d/1Gui-iwl_25gawRbOnNnZ4KJkZiWT9TKy/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/alex-unnippillil/",
+        "email": "alex.codestream@gmail.com",
+        "phone": "98453 61028"
+      },
+      {
+        "name": "Maxwell Tosh",
+        "github": "MaxMood96",
+        "resume_url": "https://drive.google.com/file/d/1eiUhhAOaUVdJR8OVogit4qi95J5P5TfK/view?usp=drive_link",
+        "linkedin": "https://www.linkedin.com/in/maxwell-tosh/",
+        "email": "maxwell.techbuilder@gmail.com",
+        "phone": "99312 44780"
+      },
+      {
+        "name": "Sanjoy Paul",
+        "github": "SANJOY-PAUL-0981",
+        "resume_url": "https://drive.google.com/file/d/1ThTJdwjRpo6gOuRUX0jjHWHKnK9QJaBN/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/sanjoy-paul-b0053122a/",
+        "email": "paulsanjoy2923@gmail.com",
+        "phone": "8145074947"
+      }
+    ]
+  },
+  {
+    "team_id": "1cds16515dcw",
+    "team_name": "BioCode",
+    "members": [
+      {
+        "name": "Shiwangi Kumari",
+        "github": "sshiwangi",
+        "resume_url": "https://drive.google.com/file/d/1Lraqw5B5MRH8S42Z9qHzSmxLNxLI5iDr/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/shiwangi-kumari-5b0b3b1b7/",
+        "email": "shiwangi.coderoom@gmail.com",
+        "phone": "90765 18934"
+      },
+      {
+        "name": "Ayush Singh",
+        "github": "ayush-that",
+        "resume_url": "https://drive.google.com/file/d/1NaXZuWeYs3Zr0ymwT9MUC9C_qP5P6v2-/view?usp=sharing",
+        "linkedin": "https://www.linkedin.com/in/ayush-that/",
+        "email": "ayush1998@gmail.com",
+        "phone": "9849884982"
+      }
+    ]
+  }
+]
