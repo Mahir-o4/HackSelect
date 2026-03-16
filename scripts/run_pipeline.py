@@ -1,11 +1,8 @@
-from scripts.load_csv import load_teams_from_csv
+import asyncio
 from app.pipeline.pipeline import run_pipeline
 from dotenv import load_dotenv
-import os
+
 load_dotenv()
 
 
-print("TOKEN1 = ", os.getenv("GITHUB_TOKEN"))
-teams = load_teams_from_csv("data/test_dataset.csv")
-
-results = run_pipeline(teams)
+asyncio.run(run_pipeline())
