@@ -24,8 +24,8 @@
   --popover: 0 0% 9%;
   --popover-foreground: 0 0% 96%;
 
-  /* Brand original primary 108 46% 33% */
-  --primary: 108 46% 45%; 
+  /* Brand original primary 108 46% 45% */
+  --primary: 93, 100%, 50%; 
   --primary-foreground: 0 0% 96%;
 
   --secondary: 0 0% 9%;
@@ -35,8 +35,8 @@
   --muted: 0 0% 16%;
   --muted-foreground: 0 0% 64%;
 
-  /* Accent */
-  --accent: 96 52% 54%;
+  /* Accent 96 52% 54%;*/
+  --accent: 93, 100%, 50%;
   --accent-foreground: 0 0% 0%;
 
   /* Highlight */
@@ -59,21 +59,22 @@
   --font-display: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Effects */
+  /* Effects hsl(108, 46%, 45%),
+    hsl(96 52% 59%)*/
   --gradient-primary: linear-gradient(
     135deg,
-    hsl(108 46% 45%),
-    hsl(96 52% 59%)
+#73ff00,
+    #95ff3f
   );
 
   --gradient-glow: radial-gradient(
     ellipse at center,
-    hsl(108 46% 33% / 0.15),
+    hsl(108, 46%, 33% / 0.15),
     transparent 70%
   );
 
-  --shadow-glow: 0 0 40px hsl(108 46% 33% / 0.2);
-  --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.4);
+  --shadow-glow: 0 0 40px hsl(108, 46%, 33% / 0.2);
+  --shadow-card: 0 4px 24px hsl(0, 0%, 0% / 0.4);
 }
 
 /* =========================
