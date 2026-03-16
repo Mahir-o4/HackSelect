@@ -21,7 +21,7 @@ const HeroSection = () => {
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       <ParticlesBackground />
       {/* Glow effect */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full animate-pulse-glow" style={{ background: "var(--gradient-glow)" }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 rounded-full animate-pulse-glow" style={{ background: "var(--gradient-glow)" }} />
 
       <div className="relative z-10 container max-w-4xl text-center px-4">
         <motion.div

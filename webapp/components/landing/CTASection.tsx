@@ -1,8 +1,9 @@
 "use client";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight} from "lucide-react";
 import Particles from "./Particles";
+import Link from "next/link";
 
 const CTASection = () => {
   return (
@@ -23,7 +24,7 @@ const CTASection = () => {
               particleCount={100}
               particleSpread={10}
               speed={0.3}
-              particleBaseSize={100}
+              particleBaseSize={50}
              
               alphaParticles
               disableRotation={false}
@@ -38,9 +39,11 @@ const CTASection = () => {
             <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
               Join hackathon organizers who are saving hours and building better teams with data-driven selection.
             </p>
-            <Button variant="hero" size="lg" className="text-base px-10 py-6">
-              Start Screening Now <ArrowRight className="ml-1 w-4 h-4" />
-            </Button>
+            <Link href="/auth/signup">
+              <Button variant="hero" size="lg" className="text-base px-10 py-6">
+                Start Screening Now <ArrowRight className="ml-1 w-4 h-4" />
+              </Button>
+            </Link>
           </div>
         </motion.div>
       </div>
