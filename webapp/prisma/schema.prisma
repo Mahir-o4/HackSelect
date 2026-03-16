@@ -103,11 +103,11 @@ model Participant {
   createdAt     DateTime @default(now())
 
   name           String
-  githubUsername String?
+  githubUsername String? @unique
   linkedInURL    String?
   resumeURL      String?
   phNumber       String?
-  email          String?
+  email          String? @unique
 
   teamId String?
   team   Team?   @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
