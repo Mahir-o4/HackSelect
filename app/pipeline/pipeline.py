@@ -50,9 +50,9 @@ async def run_pipeline():
 
     existing_results = await db.teamresult.find_many()
     result_team_ids = {r.teamId for r in existing_results}
-    
-    existing_resumes  = await db.resume.find_many()
-    resume_pids       = {r.participantId for r in existing_resumes}
+
+    existing_resumes = await db.resume.find_many()
+    resume_pids = {r.participantId for r in existing_resumes}
 
     # Load existing profiles and scores from DB for merging
     # so that incremental runs have the full dataset available
@@ -114,6 +114,13 @@ async def run_pipeline():
 
             if result:
                 resume_data[p.participantId] = result
+
+            else:
+                resume_data[p.participantId] = {
+                    "raw_text":     None,
+                    "parsed_json":  None,
+                    "resume_score": 0.0,
+                }
     # ============================================================
     # Stage 2 — Normalization + Gᵢ + Cᵢ
     # ============================================================
@@ -276,8 +283,8 @@ async def run_pipeline():
     # Pass the full github_data so persistence can unpack profile + repos
     await persistence.save_github_profiles(github_data)
     await persistence.save_github_repos(github_data)
-    await persistence.save_resumes(resume_data)        
-    await persistence.save_member_scores(member_scores) 
+    await persistence.save_resumes(resume_data)
+    await persistence.save_member_scores(member_scores)
     await persistence.save_team_features(team_features)
     await persistence.save_team_results(clusters)
 
