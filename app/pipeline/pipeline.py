@@ -1,3 +1,4 @@
+import asyncio
 from prisma import Prisma
 
 from app.services.github_service import GithubService
@@ -85,7 +86,7 @@ async def run_pipeline(hackathon_id: str):
     )
     feature_team_ids = {f.teamId for f in existing_features}
 
-    # Load existing data for merging — reuse already fetched rows
+    # Reuse already fetched rows — no extra DB calls
     existing_profile_rows = existing_profiles
     existing_score_rows   = existing_scores
 
@@ -102,40 +103,42 @@ async def run_pipeline(hackathon_id: str):
     await db.disconnect()
 
     # ============================================================
-    # Stage 1 — GitHub Metrics
+    # Stage 1 — GitHub Metrics (concurrent)
     # ============================================================
 
-    new_pids = [
-        p.participantId
+    to_fetch = [
+        p
         for t in teams
         for p in t.participant
         if p.githubUsername and p.participantId not in processed_pids
     ]
 
-    yield event("github", "in_progress", f"Fetching GitHub metrics for {len(new_pids)} participants...")
+    yield event("github", "in_progress", f"Fetching GitHub metrics for {len(to_fetch)} participants...")
+
+    # Semaphore caps concurrent GitHub API requests to avoid rate limiting
+    github_sem = asyncio.Semaphore(10)
+
+    async def fetch_github(p):
+        async with github_sem:
+            result = await asyncio.to_thread(
+                github_service.get_user_metrics, p.githubUsername
+            )
+            return p.participantId, result
+
+    github_results = await asyncio.gather(*[fetch_github(p) for p in to_fetch])
 
     github_data  = {}
     profile_list = []
     github_ok    = 0
     github_fail  = 0
 
-    for team in teams:
-        for p in team.participant:
-
-            if not p.githubUsername:
-                continue
-
-            if p.participantId in processed_pids:
-                continue
-
-            result = github_service.get_user_metrics(p.githubUsername)
-
-            if result:
-                github_data[p.participantId] = result
-                profile_list.append(result["profile"])
-                github_ok += 1
-            else:
-                github_fail += 1
+    for pid, result in github_results:
+        if result:
+            github_data[pid] = result
+            profile_list.append(result["profile"])
+            github_ok += 1
+        else:
+            github_fail += 1
 
     yield event(
         "github", "done",
@@ -144,43 +147,45 @@ async def run_pipeline(hackathon_id: str):
     )
 
     # ============================================================
-    # Stage 2 — Resume Processing
+    # Stage 2 — Resume Processing (concurrent)
     # ============================================================
 
-    new_resume_pids = [
-        p.participantId
+    to_parse = [
+        p
         for t in teams
         for p in t.participant
         if p.resumeURL and p.participantId not in resume_pids
     ]
 
-    yield event("resume", "in_progress", f"Processing {len(new_resume_pids)} resumes...")
+    yield event("resume", "in_progress", f"Processing {len(to_parse)} resumes...")
+
+    # Semaphore caps concurrent Groq API calls to avoid rate limiting
+    resume_sem = asyncio.Semaphore(2)
+
+    async def parse_resume(p):
+        async with resume_sem:
+            result = await asyncio.to_thread(
+                resume_service.process_resume, p.resumeURL
+            )
+            return p.participantId, result
+
+    resume_results = await asyncio.gather(*[parse_resume(p) for p in to_parse])
 
     resume_data  = {}
     resume_ok    = 0
     resume_fail  = 0
 
-    for team in teams:
-        for p in team.participant:
-
-            if not p.resumeURL:
-                continue
-
-            if p.participantId in resume_pids:
-                continue
-
-            result = resume_service.process_resume(p.resumeURL)
-
-            if result:
-                resume_data[p.participantId] = result
-                resume_ok += 1
-            else:
-                resume_data[p.participantId] = {
-                    "raw_text":     None,
-                    "parsed_json":  None,
-                    "resume_score": 0.0,
-                }
-                resume_fail += 1
+    for pid, result in resume_results:
+        if result:
+            resume_data[pid] = result
+            resume_ok += 1
+        else:
+            resume_data[pid] = {
+                "raw_text":     None,
+                "parsed_json":  None,
+                "resume_score": 0.0,
+            }
+            resume_fail += 1
 
     yield event(
         "resume", "done",

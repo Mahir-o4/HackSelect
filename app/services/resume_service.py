@@ -59,9 +59,9 @@ class ResumeExtraction(BaseModel):
 class ResumeService:
 
     # Caps for normalization in compute_ri
-    MAX_SKILLS = 20
-    MAX_EXPERIENCE = 10    # years
-    MAX_PROJECTS = 10
+    MAX_SKILLS      = 20
+    MAX_EXPERIENCE  = 10    # years
+    MAX_PROJECTS    = 10
 
     EDUCATION_SCORE = {
         "high_school":    0.25,
@@ -154,8 +154,7 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
 
         file_id = self._extract_drive_id(resume_url)
         if not file_id:
-            print(
-                f"[ResumeService] Could not extract file ID from URL: {resume_url}")
+            print(f"[ResumeService] Could not extract file ID from URL: {resume_url}")
             return None
 
         download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
@@ -176,8 +175,7 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
             return None
 
         if not raw_text:
-            print(
-                f"[ResumeService] PDF appears to be empty or image-based: {resume_url}")
+            print(f"[ResumeService] PDF appears to be empty or image-based: {resume_url}")
             return None
 
         return raw_text
@@ -187,15 +185,40 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
         Send resume text to Qwen3-32B via Groq and get structured JSON back.
         """
 
-        try:
-            result = self.chain.invoke({
-                "resume_text":         raw_text,
-                "format_instructions": self.parser.get_format_instructions(),
-            })
-            return result
-        except Exception as e:
-            print(f"[ResumeService] LLM parsing failed: {e}")
-            return None
+        import re as _re
+        import time
+
+        max_retries = 10
+        base_wait   = 15
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = self.chain.invoke({
+                    "resume_text":         raw_text,
+                    "format_instructions": self.parser.get_format_instructions(),
+                })
+                return result
+
+            except Exception as e:
+                error_str = str(e)
+
+                match = _re.search(r"try again in ([\d.]+)s", error_str)
+                if match:
+                    wait_time = float(match.group(1)) + 2
+                else:
+                    wait_time = base_wait * attempt
+
+                if "rate_limit_exceeded" in error_str and attempt < max_retries:
+                    print(
+                        f"[ResumeService] Rate limited. "
+                        f"Waiting {wait_time:.1f}s before retry "
+                        f"(attempt {attempt}/{max_retries})..."
+                    )
+                    time.sleep(wait_time)
+                    continue
+
+                print(f"[ResumeService] LLM parsing failed after {attempt} attempt(s): {e}")
+                return None
 
     def _compute_ri(self, parsed: dict) -> float:
         """
@@ -211,20 +234,19 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
         """
 
         # --- Skills (capped at MAX_SKILLS) ---
-        skills_count = len(parsed.get("skills", []))
-        skills_score = min(skills_count / self.MAX_SKILLS, 1.0)
+        skills_count  = len(parsed.get("skills", []))
+        skills_score  = min(skills_count / self.MAX_SKILLS, 1.0)
 
         # --- Projects (capped at MAX_PROJECTS) ---
-        num_projects = parsed.get("num_projects") or 0
+        num_projects   = parsed.get("num_projects") or 0
         projects_score = min(num_projects / self.MAX_PROJECTS, 1.0)
 
         # --- Experience (capped at MAX_EXPERIENCE years) ---
-        years_exp = parsed.get("years_of_experience") or 0
+        years_exp        = parsed.get("years_of_experience") or 0
         experience_score = min(years_exp / self.MAX_EXPERIENCE, 1.0)
 
         # --- Hackathon (boolean -> float) ---
-        hackathon_score = 1.0 if parsed.get(
-            "has_hackathon_experience") else 0.0
+        hackathon_score = 1.0 if parsed.get("has_hackathon_experience") else 0.0
 
         # --- Open Source (boolean -> float) ---
         oss_score = 1.0 if parsed.get("has_open_source_contributions") else 0.0
@@ -234,11 +256,11 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
         edu_score = self.EDUCATION_SCORE.get(edu_level, 0.25)
 
         R_i = (
-            0.25 * skills_score +
-            0.25 * projects_score +
+            0.25 * skills_score     +
+            0.25 * projects_score   +
             0.20 * experience_score +
-            0.15 * hackathon_score +
-            0.10 * oss_score +
+            0.15 * hackathon_score  +
+            0.10 * oss_score        +
             0.05 * edu_score
         )
 
