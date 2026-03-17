@@ -18,11 +18,23 @@ export const POST = async (req: NextRequest) => {
     try {
         const formData = await req.formData()
         const file = formData.get("file") as File
+        const hackathonId = formData.get("hackathonId") as string | null
 
         if (!file) {
             return NextResponse.json(
                 {
                     error: "No file Uploaded."
+                },
+                {
+                    status: 400
+                }
+            )
+        }
+
+        if (!hackathonId) {
+            return NextResponse.json(
+                {
+                    error: "hackathonId is required"
                 },
                 {
                     status: 400
@@ -76,8 +88,8 @@ export const POST = async (req: NextRequest) => {
 
             await prisma.team.upsert({
                 where: { teamId },
-                update: { teamName },
-                create: { teamId, teamName },
+                update: { teamName, hackathonId },
+                create: { teamId, teamName, hackathonId },
             });
 
             totalTeams++;
