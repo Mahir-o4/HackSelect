@@ -73,11 +73,8 @@ class ResumeService:
     def __init__(self):
         self.llm = ChatGroq(
             api_key=GROQ_API_KEY,
-            model="qwen/qwen3-32b",
+            model="llama-3.1-8b-instant",
             temperature=0,
-            model_kwargs={
-                "extra_body": {"thinking": {"type": "disabled"}}
-            }
         )
 
         self.parser = JsonOutputParser(pydantic_object=ResumeExtraction)

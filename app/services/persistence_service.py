@@ -1,4 +1,5 @@
 from prisma import Prisma
+import json
 
 
 class PersistenceService:
@@ -193,7 +194,7 @@ class PersistenceService:
                 "participantId": pid,
                 "rawText":       data["raw_text"],
                 "resumeScore":   data["resume_score"],
-                "parsedJSON":    data["parsed_json"],
+                "parsedJSON":    json.dumps(data["parsed_json"]),
             }
             for pid, data in resume_data.items()
         ]
