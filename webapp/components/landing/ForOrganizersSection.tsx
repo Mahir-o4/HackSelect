@@ -27,7 +27,7 @@ const ForOrganizersSection = () => (
               { icon: CheckCircle2, text: "Auto-shortlist candidates based on scores and availability" },
             ].map((item, i) => (
               <div key={i} className="flex items-start gap-4">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
                   <item.icon className="w-4 h-4 text-accent" />
                 </div>
                 <p className="text-foreground">{item.text}</p>

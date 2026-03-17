@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 import { motion } from "framer-motion";
 import { Clock, ShieldAlert, Users } from "lucide-react";
@@ -69,7 +70,7 @@ const ProblemSection = () => (
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-[10px] border border-border group-hover:border-foreground/20 transition-colors flex items-center justify-center shrink-0">
-                    <item.icon className="w-[18px] h-[18px] text-muted-foreground group-hover:text-foreground transition-colors" />
+                    <item.icon className="w-4.5 h-4.5 text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
                   <span className="text-xl font-semibold text-foreground transition-colors duration-200">
                     {item.title}
