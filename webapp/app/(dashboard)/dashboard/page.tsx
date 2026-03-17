@@ -1,11 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import EmptyHackathons from "@/components/dashboard/DefaultPage";
+import CreateHack from "@/components/dashboard/CreateHack";
+
+interface Hackathon {
+  name: string;
+  participants: string[];
+}
 
 export default function DashboardPage() {
+  const [open, setOpen] = useState(false);
+  const [hackathons, setHackathons] = useState<Hackathon[]>([]);
+
+  const createHackathon = (hackathon: Hackathon) => {
+    setHackathons((prev) => [...prev, hackathon]);
+  };
+
   return (
-    <div className="flex items-center justify-center h-full p-10">
-      <EmptyHackathons onClick={() => {}} />
-    </div>
+    <>
+      {/* Default empty state */}
+      {hackathons.length === 0 && (
+        <EmptyHackathons onClick={() => setOpen(true)} />
+      )}
+
+      {/* Popup */}
+      <CreateHack
+        open={open}
+        onClose={() => setOpen(false)}
+        onCreate={createHackathon}
+      />
+    </>
   );
 }

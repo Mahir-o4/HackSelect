@@ -62,7 +62,7 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="w-[460px] bg-card border border-border rounded-2xl p-6 space-y-6 shadow-xl"
+          className="w-105 bg-card border border-border rounded-2xl p-6 space-y-6 shadow-xl"
         >
           {/* Header */}
           <div className="space-y-1">
