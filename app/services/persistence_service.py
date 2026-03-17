@@ -1,5 +1,4 @@
-from prisma import Prisma
-import json
+from prisma import Prisma, Json
 
 
 class PersistenceService:
@@ -88,6 +87,35 @@ class PersistenceService:
         )
 
     # ---------------------------
+    # Resumes
+    # ---------------------------
+
+    async def save_resumes(self, resume_data):
+        """
+        resume_data: { pid -> { "raw_text", "parsed_json", "resume_score" } }
+        Persists to Resume table.
+        """
+
+        if not resume_data:
+            return
+
+        rows = []
+        for pid, d in resume_data.items():
+            row = {
+                "participantId": pid,
+                "rawText":       d["raw_text"],
+                "resumeScore":   d["resume_score"],
+            }
+            if d["parsed_json"] is not None:
+                row["parsedJSON"] = Json(d["parsed_json"])
+            rows.append(row)
+
+        await self.db.resume.create_many(
+            data=rows,
+            skip_duplicates=True
+        )
+
+    # ---------------------------
     # Member Scores
     # ---------------------------
 
@@ -157,49 +185,6 @@ class PersistenceService:
             skip_duplicates=True
         )
 
-    # ---------------------------
-    # Team Results
-    # ---------------------------
-
-    async def save_team_results(self, clusters):
-        """
-        clusters: { tid -> { "cluster", "level", "score", "selected" } }
-        """
-
-        if not clusters:
-            return
-
-        rows = [
-            {
-                "teamId":       tid,
-                "clusterLabel": r["cluster"],
-                "level":        r["level"],
-                "teamScore":    r["score"],
-                "selected":     r["selected"],
-            }
-            for tid, r in clusters.items()
-        ]
-
-        await self.db.teamresult.create_many(
-            data=rows,
-            skip_duplicates=True
-        )
-
-    async def save_resumes(self, resume_data: dict):
-        if not resume_data:
-            return
-
-        rows = [
-            {
-                "participantId": pid,
-                "rawText":       data["raw_text"],
-                "resumeScore":   data["resume_score"],
-                "parsedJSON":    json.dumps(data["parsed_json"]),
-            }
-            for pid, data in resume_data.items()
-        ]
-
-        await self.db.resume.create_many(
-            data=rows,
-            skip_duplicates=True
-        )
+    # Note: TeamResult persistence is handled by clustering_service.py
+    # via individual upsert calls, since clustering can be re-run
+    # multiple times with different filter modes.

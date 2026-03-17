@@ -11,54 +11,87 @@ from app.compute.scoring import (
     compute_ci,
 )
 from app.compute.team_feature import compute_team_features
-from app.compute.clustering import cluster_teams
 
 from app.config.settings import GITHUB_TOKEN
 
 
-async def run_pipeline():
+async def run_pipeline(hackathon_id: str):
+    """
+    Async generator that runs the full data pipeline for a hackathon.
+    Yields SSE-compatible event dicts at each stage.
+    Clustering is NOT performed here — it is triggered separately
+    via the /teams/cluster route after the pipeline completes.
+    """
+
+    def event(stage: str, status: str, message: str) -> dict:
+        return {"stage": stage, "status": status, "message": message}
 
     # ------------------------------------------------------------
     # Init services
     # ------------------------------------------------------------
 
+    yield event("init", "in_progress", "Initializing pipeline...")
+
     github_service = GithubService(GITHUB_TOKEN)
     resume_service = ResumeService()
-    persistence = PersistenceService()
+    persistence    = PersistenceService()
 
     db = Prisma()
     await db.connect()
 
-    print("Fetching teams...")
-
     teams = await db.team.find_many(
+        where={"hackathonId": hackathon_id},
         include={"participant": True}
     )
 
+    if not teams:
+        yield event("init", "error", "No teams found for this hackathon.")
+        await db.disconnect()
+        return
+
+    total_teams        = len(teams)
+    total_participants = sum(len(t.participant) for t in teams)
+
+    yield event("init", "done", f"Found {total_teams} teams and {total_participants} participants.")
+
+    # Collect all participant IDs belonging to this hackathon
+    hackathon_pids = {
+        p.participantId
+        for team in teams
+        for p in team.participant
+    }
+
     # ------------------------------------------------------------
-    # Determine existing data (idempotency)
+    # Idempotency checks — scoped to this hackathon
     # ------------------------------------------------------------
 
-    existing_profiles = await db.githubprofile.find_many()
+    existing_profiles = await db.githubprofile.find_many(
+        where={"participantId": {"in": list(hackathon_pids)}}
+    )
     processed_pids = {p.participantId for p in existing_profiles}
 
-    existing_scores = await db.memberscore.find_many()
+    existing_scores = await db.memberscore.find_many(
+        where={"participantId": {"in": list(hackathon_pids)}}
+    )
     scored_pids = {s.participantId for s in existing_scores}
 
-    existing_features = await db.teamfeature.find_many()
-    feature_team_ids = {f.teamId for f in existing_features}
-
-    existing_results = await db.teamresult.find_many()
-    result_team_ids = {r.teamId for r in existing_results}
-
-    existing_resumes = await db.resume.find_many()
+    existing_resumes = await db.resume.find_many(
+        where={"participantId": {"in": list(hackathon_pids)}}
+    )
     resume_pids = {r.participantId for r in existing_resumes}
 
-    # Load existing profiles and scores from DB for merging
-    # so that incremental runs have the full dataset available
-    existing_profile_rows = await db.githubprofile.find_many()
-    existing_score_rows = await db.memberscore.find_many()
-    existing_repo_rows = await db.githubrepo.find_many()
+    existing_features = await db.teamfeature.find_many(
+        where={"teamId": {"in": [t.teamId for t in teams]}}
+    )
+    feature_team_ids = {f.teamId for f in existing_features}
+
+    # Load existing data for merging — reuse already fetched rows
+    existing_profile_rows = existing_profiles
+    existing_score_rows   = existing_scores
+
+    existing_repo_rows = await db.githubrepo.find_many(
+        where={"participantId": {"in": list(hackathon_pids)}}
+    )
 
     existing_resume_map = {
         r.participantId: r.resumeScore
@@ -72,12 +105,19 @@ async def run_pipeline():
     # Stage 1 — GitHub Metrics
     # ============================================================
 
-    print("Fetching GitHub metrics...")
+    new_pids = [
+        p.participantId
+        for t in teams
+        for p in t.participant
+        if p.githubUsername and p.participantId not in processed_pids
+    ]
 
-    # github_data : { pid -> { "profile": {...}, "repos": [...] } }
-    # Only contains NEWLY fetched participants this run
-    github_data = {}
+    yield event("github", "in_progress", f"Fetching GitHub metrics for {len(new_pids)} participants...")
+
+    github_data  = {}
     profile_list = []
+    github_ok    = 0
+    github_fail  = 0
 
     for team in teams:
         for p in team.participant:
@@ -93,68 +133,95 @@ async def run_pipeline():
             if result:
                 github_data[p.participantId] = result
                 profile_list.append(result["profile"])
+                github_ok += 1
+            else:
+                github_fail += 1
+
+    yield event(
+        "github", "done",
+        f"Fetched {github_ok} profiles. {github_fail} failed. "
+        f"{len(processed_pids)} already in DB."
+    )
 
     # ============================================================
-    # Stage 1.5 — Resume Processing
+    # Stage 2 — Resume Processing
     # ============================================================
 
-    print("Processing resumes...")
+    new_resume_pids = [
+        p.participantId
+        for t in teams
+        for p in t.participant
+        if p.resumeURL and p.participantId not in resume_pids
+    ]
 
-    resume_data = {}
+    yield event("resume", "in_progress", f"Processing {len(new_resume_pids)} resumes...")
+
+    resume_data  = {}
+    resume_ok    = 0
+    resume_fail  = 0
 
     for team in teams:
         for p in team.participant:
+
             if not p.resumeURL:
                 continue
+
             if p.participantId in resume_pids:
                 continue
 
-            print(f"  [resume] Participant {p.participantId}...")
             result = resume_service.process_resume(p.resumeURL)
 
             if result:
                 resume_data[p.participantId] = result
-
+                resume_ok += 1
             else:
                 resume_data[p.participantId] = {
                     "raw_text":     None,
                     "parsed_json":  None,
                     "resume_score": 0.0,
                 }
+                resume_fail += 1
+
+    yield event(
+        "resume", "done",
+        f"Processed {resume_ok} resumes. {resume_fail} failed. "
+        f"{len(resume_pids)} already in DB."
+    )
+
     # ============================================================
-    # Stage 2 — Normalization + Gᵢ + Cᵢ
+    # Stage 3 — Normalization + Gᵢ + Cᵢ
     # ============================================================
 
-    print("Computing scores...")
+    yield event("scoring", "in_progress", "Computing member scores (Gᵢ, Rᵢ, Cᵢ)...")
 
-    # member_scores : { pid -> { "g_i", "r_i", "c_i", "activity_score" } }
-    # Seed with already-scored participants from DB first
+    # Seed with already-scored participants from DB
     member_scores = {
         row.participantId: {
             "g_i":            row.gI,
             "r_i":            row.rI,
             "c_i":            row.cI,
-            "activity_score": None,     # not stored separately, handled below
+            "activity_score": None,
         }
         for row in existing_score_rows
     }
 
-    # Merge existing profiles into a full profile list for correct maxima
+    # Build existing profile map for dataset-wide maxima
     existing_profile_map = {
         row.participantId: {
-            "total_stars":      row.totalStars or 0,
-            "total_forks":      row.totalForks or 0,
-            "original_repos":   row.originalRepos or 0,
-            "total_repos":      row.totalRepos or 0,
+            "total_stars":      row.totalStars      or 0,
+            "total_forks":      row.totalForks      or 0,
+            "original_repos":   row.originalRepos   or 0,
+            "total_repos":      row.totalRepos      or 0,
             "unique_languages": row.uniqueLanguages or 0,
-            "activity_raw":     row.activityRaw or 0,
-            "activity_score":   row.activityScore or 0,
+            "activity_raw":     row.activityRaw     or 0,
+            "activity_score":   row.activityScore   or 0,
         }
         for row in existing_profile_rows
     }
 
-    # Full profile list = existing + new (for dataset-wide maxima)
+    # Full profile list = existing (this hackathon) + newly fetched
     all_profiles = list(existing_profile_map.values()) + profile_list
+    new_scores   = 0
 
     if all_profiles:
 
@@ -166,13 +233,7 @@ async def run_pipeline():
                 continue
 
             profile = result["profile"]
-
-            a_score = compute_activity_score(
-                profile["activity_raw"], maxima["A_max"]
-            )
-
-            # Attach normalised activity_score back onto profile
-            # so persistence can save it
+            a_score = compute_activity_score(profile["activity_raw"], maxima["A_max"])
             profile["activity_score"] = a_score
 
             g_i = compute_gi(profile, maxima)
@@ -192,30 +253,38 @@ async def run_pipeline():
                 "c_i":            c_i,
                 "activity_score": a_score,
             }
+            new_scores += 1
+
+    # Patch activity_score into existing member_scores from profile map
+    for pid, scores in member_scores.items():
+        if scores["activity_score"] is None and pid in existing_profile_map:
+            scores["activity_score"] = existing_profile_map[pid]["activity_score"]
+
+    yield event("scoring", "done", f"Computed {new_scores} new scores. {len(scored_pids)} already in DB.")
 
     # ============================================================
-    # Stage 3 — Team Features
+    # Stage 4 — Team Features
     # ============================================================
 
-    print("Computing team features...")
+    yield event("features", "in_progress", "Computing team feature vectors...")
 
-    # Build a repo lookup from existing DB rows: { pid -> [repo dicts] }
     existing_repo_map = {}
     for row in existing_repo_rows:
         existing_repo_map.setdefault(row.participantId, []).append({
-            "stars":    row.stars or 0,
+            "stars":    row.stars    or 0,
             "language": row.language,
         })
 
-    team_features = {}
+    team_features  = {}
+    features_new   = 0
+    features_skip  = 0
 
     for team in teams:
 
         if team.teamId in feature_team_ids:
+            features_skip += 1
             continue
 
-        # Build rich per-member dicts expected by compute_team_features
-        # drawing from both newly fetched and previously stored data
         members = []
 
         for p in team.participant:
@@ -227,13 +296,12 @@ async def run_pipeline():
 
             scores = member_scores[pid]
 
-            # Profile — prefer newly fetched, fall back to DB
             if pid in github_data:
                 profile = github_data[pid]["profile"]
-                repos = github_data[pid]["repos"]
+                repos   = github_data[pid]["repos"]
             elif pid in existing_profile_map:
                 profile = existing_profile_map[pid]
-                repos = existing_repo_map.get(pid, [])
+                repos   = existing_repo_map.get(pid, [])
             else:
                 continue
 
@@ -252,42 +320,32 @@ async def run_pipeline():
             continue
 
         team_features[team.teamId] = compute_team_features(members)
+        features_new += 1
 
-    # ============================================================
-    # Stage 4 — Clustering
-    # ============================================================
-
-    print("Clustering teams...")
-
-    clusters = {}
-
-    if team_features:
-
-        raw_clusters = cluster_teams(team_features)
-
-        for team_id, res in raw_clusters.items():
-
-            if team_id in result_team_ids:
-                continue
-
-            clusters[team_id] = res
+    yield event(
+        "features", "done",
+        f"Computed features for {features_new} teams. {features_skip} already in DB."
+    )
 
     # ============================================================
     # Stage 5 — Persistence
     # ============================================================
 
-    print("Persisting results...")
+    yield event("persistence", "in_progress", "Saving results to database...")
 
     await persistence.connect()
 
-    # Pass the full github_data so persistence can unpack profile + repos
     await persistence.save_github_profiles(github_data)
     await persistence.save_github_repos(github_data)
     await persistence.save_resumes(resume_data)
     await persistence.save_member_scores(member_scores)
     await persistence.save_team_features(team_features)
-    await persistence.save_team_results(clusters)
 
     await persistence.disconnect()
 
-    print("Pipeline complete!")
+    yield event("persistence", "done", "All data saved successfully.")
+
+    yield event(
+        "complete", "done",
+        "Pipeline complete. Trigger /teams/cluster to run clustering."
+    )
