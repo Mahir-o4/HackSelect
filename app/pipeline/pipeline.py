@@ -49,6 +49,12 @@ async def run_pipeline():
     existing_results  = await db.teamresult.find_many()
     result_team_ids   = {r.teamId for r in existing_results}
 
+    # Load existing profiles and scores from DB for merging
+    # so that incremental runs have the full dataset available
+    existing_profile_rows = await db.githubprofile.find_many()
+    existing_score_rows   = await db.memberscore.find_many()
+    existing_repo_rows    = await db.githubrepo.find_many()
+
     await db.disconnect()
 
     # ============================================================
@@ -57,8 +63,8 @@ async def run_pipeline():
 
     print("Fetching GitHub metrics...")
 
-    # github_data  : { pid -> { "profile": {...}, "repos": [...] } }
-    # profile_list : flat list of profile dicts for compute_dataset_maxima
+    # github_data : { pid -> { "profile": {...}, "repos": [...] } }
+    # Only contains NEWLY fetched participants this run
     github_data  = {}
     profile_list = []
 
@@ -84,11 +90,37 @@ async def run_pipeline():
     print("Computing scores...")
 
     # member_scores : { pid -> { "g_i", "r_i", "c_i", "activity_score" } }
-    member_scores = {}
+    # Seed with already-scored participants from DB first
+    member_scores = {
+        row.participantId: {
+            "g_i":            row.gI,
+            "r_i":            row.rI,
+            "c_i":            row.cI,
+            "activity_score": None,     # not stored separately, handled below
+        }
+        for row in existing_score_rows
+    }
 
-    if profile_list:
+    # Merge existing profiles into a full profile list for correct maxima
+    existing_profile_map = {
+        row.participantId: {
+            "total_stars":      row.totalStars      or 0,
+            "total_forks":      row.totalForks      or 0,
+            "original_repos":   row.originalRepos   or 0,
+            "total_repos":      row.totalRepos      or 0,
+            "unique_languages": row.uniqueLanguages or 0,
+            "activity_raw":     row.activityRaw     or 0,
+            "activity_score":   row.activityScore   or 0,
+        }
+        for row in existing_profile_rows
+    }
 
-        maxima = compute_dataset_maxima(profile_list)
+    # Full profile list = existing + new (for dataset-wide maxima)
+    all_profiles = list(existing_profile_map.values()) + profile_list
+
+    if all_profiles:
+
+        maxima = compute_dataset_maxima(all_profiles)
 
         for pid, result in github_data.items():
 
@@ -102,7 +134,7 @@ async def run_pipeline():
             )
 
             # Attach normalised activity_score back onto profile
-            # so compute_gi can use it if needed and persistence can save it
+            # so persistence can save it
             profile["activity_score"] = a_score
 
             g_i = compute_gi(profile, maxima)
@@ -124,6 +156,14 @@ async def run_pipeline():
 
     print("Computing team features...")
 
+    # Build a repo lookup from existing DB rows: { pid -> [repo dicts] }
+    existing_repo_map = {}
+    for row in existing_repo_rows:
+        existing_repo_map.setdefault(row.participantId, []).append({
+            "stars":    row.stars    or 0,
+            "language": row.language,
+        })
+
     team_features = {}
 
     for team in teams:
@@ -132,6 +172,7 @@ async def run_pipeline():
             continue
 
         # Build rich per-member dicts expected by compute_team_features
+        # drawing from both newly fetched and previously stored data
         members = []
 
         for p in team.participant:
@@ -141,15 +182,23 @@ async def run_pipeline():
             if pid not in member_scores:
                 continue
 
-            scores  = member_scores[pid]
-            profile = github_data[pid]["profile"]
-            repos   = github_data[pid]["repos"]
+            scores = member_scores[pid]
+
+            # Profile — prefer newly fetched, fall back to DB
+            if pid in github_data:
+                profile = github_data[pid]["profile"]
+                repos   = github_data[pid]["repos"]
+            elif pid in existing_profile_map:
+                profile = existing_profile_map[pid]
+                repos   = existing_repo_map.get(pid, [])
+            else:
+                continue
 
             members.append({
                 "g_i":            scores["g_i"],
                 "r_i":            scores["r_i"],
                 "c_i":            scores["c_i"],
-                "activity_score": scores["activity_score"],
+                "activity_score": scores["activity_score"] or profile.get("activity_score", 0),
                 "total_stars":    profile["total_stars"],
                 "repo_stars":     [r["stars"] for r in repos],
                 "original_repos": profile["original_repos"],
