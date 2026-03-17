@@ -1,6 +1,7 @@
 from prisma import Prisma
 
 from app.services.github_service import GithubService
+from app.services.resume_service import ResumeService
 from app.services.persistence_service import PersistenceService
 
 from app.compute.scoring import (
@@ -22,7 +23,8 @@ async def run_pipeline():
     # ------------------------------------------------------------
 
     github_service = GithubService(GITHUB_TOKEN)
-    persistence    = PersistenceService()
+    resume_service = ResumeService()
+    persistence = PersistenceService()
 
     db = Prisma()
     await db.connect()
@@ -38,22 +40,31 @@ async def run_pipeline():
     # ------------------------------------------------------------
 
     existing_profiles = await db.githubprofile.find_many()
-    processed_pids    = {p.participantId for p in existing_profiles}
+    processed_pids = {p.participantId for p in existing_profiles}
 
-    existing_scores   = await db.memberscore.find_many()
-    scored_pids       = {s.participantId for s in existing_scores}
+    existing_scores = await db.memberscore.find_many()
+    scored_pids = {s.participantId for s in existing_scores}
 
     existing_features = await db.teamfeature.find_many()
-    feature_team_ids  = {f.teamId for f in existing_features}
+    feature_team_ids = {f.teamId for f in existing_features}
 
-    existing_results  = await db.teamresult.find_many()
-    result_team_ids   = {r.teamId for r in existing_results}
+    existing_results = await db.teamresult.find_many()
+    result_team_ids = {r.teamId for r in existing_results}
+    
+    existing_resumes  = await db.resume.find_many()
+    resume_pids       = {r.participantId for r in existing_resumes}
 
     # Load existing profiles and scores from DB for merging
     # so that incremental runs have the full dataset available
     existing_profile_rows = await db.githubprofile.find_many()
-    existing_score_rows   = await db.memberscore.find_many()
-    existing_repo_rows    = await db.githubrepo.find_many()
+    existing_score_rows = await db.memberscore.find_many()
+    existing_repo_rows = await db.githubrepo.find_many()
+
+    existing_resume_map = {
+        r.participantId: r.resumeScore
+        for r in existing_resumes
+        if r.resumeScore is not None
+    }
 
     await db.disconnect()
 
@@ -65,7 +76,7 @@ async def run_pipeline():
 
     # github_data : { pid -> { "profile": {...}, "repos": [...] } }
     # Only contains NEWLY fetched participants this run
-    github_data  = {}
+    github_data = {}
     profile_list = []
 
     for team in teams:
@@ -83,6 +94,26 @@ async def run_pipeline():
                 github_data[p.participantId] = result
                 profile_list.append(result["profile"])
 
+    # ============================================================
+    # Stage 1.5 — Resume Processing
+    # ============================================================
+
+    print("Processing resumes...")
+
+    resume_data = {}
+
+    for team in teams:
+        for p in team.participant:
+            if not p.resumeURL:
+                continue
+            if p.participantId in resume_pids:
+                continue
+
+            print(f"  [resume] Participant {p.participantId}...")
+            result = resume_service.process_resume(p.resumeURL)
+
+            if result:
+                resume_data[p.participantId] = result
     # ============================================================
     # Stage 2 — Normalization + Gᵢ + Cᵢ
     # ============================================================
@@ -104,13 +135,13 @@ async def run_pipeline():
     # Merge existing profiles into a full profile list for correct maxima
     existing_profile_map = {
         row.participantId: {
-            "total_stars":      row.totalStars      or 0,
-            "total_forks":      row.totalForks      or 0,
-            "original_repos":   row.originalRepos   or 0,
-            "total_repos":      row.totalRepos      or 0,
+            "total_stars":      row.totalStars or 0,
+            "total_forks":      row.totalForks or 0,
+            "original_repos":   row.originalRepos or 0,
+            "total_repos":      row.totalRepos or 0,
             "unique_languages": row.uniqueLanguages or 0,
-            "activity_raw":     row.activityRaw     or 0,
-            "activity_score":   row.activityScore   or 0,
+            "activity_raw":     row.activityRaw or 0,
+            "activity_score":   row.activityScore or 0,
         }
         for row in existing_profile_rows
     }
@@ -139,8 +170,13 @@ async def run_pipeline():
 
             g_i = compute_gi(profile, maxima)
 
-            # r_i — None until resume pipeline is active
-            r_i = None
+            if pid in resume_data:
+                r_i = resume_data[pid]["resume_score"]
+            elif pid in existing_resume_map:
+                r_i = existing_resume_map[pid]
+            else:
+                r_i = None
+
             c_i = compute_ci(g_i, r_i)
 
             member_scores[pid] = {
@@ -160,7 +196,7 @@ async def run_pipeline():
     existing_repo_map = {}
     for row in existing_repo_rows:
         existing_repo_map.setdefault(row.participantId, []).append({
-            "stars":    row.stars    or 0,
+            "stars":    row.stars or 0,
             "language": row.language,
         })
 
@@ -187,10 +223,10 @@ async def run_pipeline():
             # Profile — prefer newly fetched, fall back to DB
             if pid in github_data:
                 profile = github_data[pid]["profile"]
-                repos   = github_data[pid]["repos"]
+                repos = github_data[pid]["repos"]
             elif pid in existing_profile_map:
                 profile = existing_profile_map[pid]
-                repos   = existing_repo_map.get(pid, [])
+                repos = existing_repo_map.get(pid, [])
             else:
                 continue
 
@@ -240,7 +276,8 @@ async def run_pipeline():
     # Pass the full github_data so persistence can unpack profile + repos
     await persistence.save_github_profiles(github_data)
     await persistence.save_github_repos(github_data)
-    await persistence.save_member_scores(member_scores)
+    await persistence.save_resumes(resume_data)        
+    await persistence.save_member_scores(member_scores) 
     await persistence.save_team_features(team_features)
     await persistence.save_team_results(clusters)
 

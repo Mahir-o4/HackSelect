@@ -183,3 +183,22 @@ class PersistenceService:
             data=rows,
             skip_duplicates=True
         )
+
+    async def save_resumes(self, resume_data: dict):
+        if not resume_data:
+            return
+
+        rows = [
+            {
+                "participantId": pid,
+                "rawText":       data["raw_text"],
+                "resumeScore":   data["resume_score"],
+                "parsedJSON":    data["parsed_json"],
+            }
+            for pid, data in resume_data.items()
+        ]
+
+        await self.db.resume.create_many(
+            data=rows,
+            skip_duplicates=True
+        )
