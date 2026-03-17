@@ -1,5 +1,3 @@
-# app/services/summary_service.py
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
@@ -42,7 +40,7 @@ class SummaryService:
 
     def __init__(self):
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash-lite",
             google_api_key=GEMINI_API_KEY,
             temperature=0.3,
         )

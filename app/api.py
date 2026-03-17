@@ -17,4 +17,4 @@ app.include_router(summary_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "Mahir say's ok"}
