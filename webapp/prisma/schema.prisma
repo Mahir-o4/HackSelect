@@ -77,18 +77,23 @@ model Verification {
   @@map("verification")
 }
 
+model Hackathon {
+  id        String   @id @default(uuid())
+  name      String?
+  createdAt DateTime @default(now())
 
+  teams Team[]
 
-
-
-
-
-
+  @@map("hackathon")
+}
 
 model Team {
   teamId    String   @id
   teamName  String?
   createdAt DateTime @default(now())
+
+  hackathonId String?
+  hackathon   Hackathon? @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
 
   participant Participant[]
   teamFeature TeamFeature?
