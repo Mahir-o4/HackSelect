@@ -22,20 +22,39 @@ LEVEL_MAP = {
 }
 
 
-def cluster_teams(team_features):
+def cluster_teams(team_features, feature_keys=None):
     """
-    Cluster teams using KMeans on the full 16-feature vector.
+    Cluster teams using KMeans on the provided feature vector.
+
+    Args:
+        team_features: { team_id -> { feature_key: value, ... } }
+        feature_keys:  List of feature keys to use. Defaults to full FEATURE_KEYS.
+                       Pass a filtered list from clustering_service for github/resume modes.
 
     Level (Beginner / Intermediate / Advanced) is assigned by ranking
-    the three KMeans cluster centroids on F7 (Average Combined Strength),
-    so the label reflects actual relative performance rather than a
-    hardcoded threshold on a single feature.
+    the three KMeans cluster centroids on the primary ranking feature:
+        - F7 if present (combined strength, used for "both" mode)
+        - F1 if F7 absent (github strength, used for "github" mode)
+        - F5 if neither present (resume strength, used for "resume" mode)
 
     Returns:
         { team_id -> { "cluster", "level", "score", "selected" } }
     """
 
+    if feature_keys is None:
+        feature_keys = FEATURE_KEYS
+
     team_ids = list(team_features.keys())
+
+    # Pick the best available ranking feature
+    if "F7" in feature_keys:
+        rank_feature = "F7"
+    elif "F1" in feature_keys:
+        rank_feature = "F1"
+    else:
+        rank_feature = "F5"
+
+    rank_index = feature_keys.index(rank_feature)
 
     if len(team_ids) < 3:
         # Not enough teams to form 3 clusters — assign everything Intermediate
@@ -43,7 +62,7 @@ def cluster_teams(team_features):
             tid: {
                 "cluster":  0,
                 "level":    "Intermediate",
-                "score":    round(float(team_features[tid].get("F7", 0)), 6),
+                "score":    round(float(team_features[tid].get(rank_feature, 0)), 6),
                 "selected": False,
             }
             for tid in team_ids
@@ -54,7 +73,7 @@ def cluster_teams(team_features):
     # ----------------------------------------------------------------
 
     X_raw = np.array([
-        [f[key] for key in FEATURE_KEYS]
+        [f[key] for key in feature_keys]
         for f in team_features.values()
     ], dtype=float)
 
@@ -71,19 +90,15 @@ def cluster_teams(team_features):
     labels = kmeans.fit_predict(X)
 
     # ----------------------------------------------------------------
-    # Rank clusters by centroid F7 (index of F7 in FEATURE_KEYS = 6)
+    # Rank clusters by centroid of primary ranking feature
     # ----------------------------------------------------------------
 
-    F7_index = FEATURE_KEYS.index("F7")
-
-    # Mean raw F7 per cluster label
-    cluster_f7_means = {
-        label: X_raw[labels == label, F7_index].mean()
+    cluster_rank_means = {
+        label: X_raw[labels == label, rank_index].mean()
         for label in range(3)
     }
 
-    # rank_map: cluster_label -> rank (0=weakest, 2=strongest)
-    sorted_labels = sorted(cluster_f7_means, key=cluster_f7_means.get)
+    sorted_labels = sorted(cluster_rank_means, key=cluster_rank_means.get)
     rank_map = {label: rank for rank, label in enumerate(sorted_labels)}
 
     # ----------------------------------------------------------------
@@ -96,7 +111,7 @@ def cluster_teams(team_features):
 
         rank  = rank_map[int(label)]
         level = LEVEL_MAP[rank]
-        score = round(float(raw_vec[F7_index]), 6)   # F7 as team score
+        score = round(float(raw_vec[rank_index]), 6)
 
         clusters[team_id] = {
             "cluster":  int(label),
