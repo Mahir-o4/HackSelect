@@ -1,15 +1,29 @@
 import re
 import io
+import time
 import requests
 import pdfplumber
 
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from app.config.settings import GROQ_API_KEY
+from app.config.settings import GEMINI_API_KEY
+
+
+# ----------------------------------------------------------------
+# Model fallback chain — ordered by priority
+# Primary has the most RPD, fallbacks are used sparingly
+# Once a model is rate limited it is skipped for the rest of the run
+# ----------------------------------------------------------------
+
+MODEL_CHAIN = [
+    "gemini-3.1-flash-lite-preview",    # Primary   — 15 RPM, 500 RPD
+    "gemini-2.5-flash-lite",            # Fallback 1 — 10 RPM,  20 RPD
+    "gemini-2.5-flash",                 # Fallback 2 —  5 RPM,  20 RPD
+]
 
 
 # ----------------------------------------------------------------
@@ -58,25 +72,18 @@ class ResumeExtraction(BaseModel):
 
 class ResumeService:
 
-    # Caps for normalization in compute_ri
-    MAX_SKILLS      = 20
-    MAX_EXPERIENCE  = 10    # years
-    MAX_PROJECTS    = 10
+    MAX_SKILLS     = 20
+    MAX_EXPERIENCE = 10
+    MAX_PROJECTS   = 10
 
     EDUCATION_SCORE = {
-        "high_school":    0.25,
-        "undergraduate":  0.60,
-        "postgraduate":   0.85,
-        "phd":            1.00,
+        "high_school":   0.25,
+        "undergraduate": 0.60,
+        "postgraduate":  0.85,
+        "phd":           1.00,
     }
 
     def __init__(self):
-        self.llm = ChatGroq(
-            api_key=GROQ_API_KEY,
-            model="llama-3.1-8b-instant",
-            temperature=0,
-        )
-
         self.parser = JsonOutputParser(pydantic_object=ResumeExtraction)
 
         self.prompt = ChatPromptTemplate.from_messages([
@@ -96,7 +103,32 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
             )
         ])
 
-        self.chain = self.prompt | self.llm | self.parser
+        # current_model_index is shared across all calls in this service instance
+        # When a model gets rate limited it increments and stays incremented (sticky)
+        self._model_index = 0
+        self._build_chain()
+
+    def _build_chain(self):
+        """Build the LangChain chain for the current model."""
+        model = MODEL_CHAIN[self._model_index]
+        self._llm = ChatGoogleGenerativeAI(
+            google_api_key=GEMINI_API_KEY,
+            model=model,
+            temperature=0,
+        )
+        self._chain = self.prompt | self._llm | self.parser
+        print(f"[ResumeService] Using model: {model}")
+
+    def _fallback(self):
+        """
+        Advance to the next model in the chain.
+        Returns True if a fallback is available, False if all models exhausted.
+        """
+        if self._model_index < len(MODEL_CHAIN) - 1:
+            self._model_index += 1
+            self._build_chain()
+            return True
+        return False
 
     # ---------------------------
     # Public API
@@ -107,13 +139,13 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
         Full pipeline for a single resume:
             1. Fetch PDF from Google Drive
             2. Extract raw text
-            3. Parse via Qwen
+            3. Parse via Gemini (with sticky model fallback)
             4. Compute r_i score
         Returns:
             {
                 "raw_text":     str,
                 "parsed_json":  dict,
-                "resume_score": float   <- r_i
+                "resume_score": float
             }
         or None if any step fails.
         """
@@ -139,18 +171,11 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
     # ---------------------------
 
     def _extract_drive_id(self, url: str) -> str | None:
-        """
-        Extract FILE_ID from a Google Drive shareable link.
-        Handles:
-            https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-        """
         match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", url)
         return match.group(1) if match else None
 
     def _fetch_and_extract(self, resume_url: str) -> str | None:
-        """
-        Fetch PDF from Google Drive and extract raw text using pdfplumber.
-        """
+        """Fetch PDF from Google Drive and extract raw text using pdfplumber."""
 
         file_id = self._extract_drive_id(resume_url)
         if not file_id:
@@ -182,18 +207,14 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
 
     def _parse_resume(self, raw_text: str) -> dict | None:
         """
-        Send resume text to Qwen3-32B via Groq and get structured JSON back.
+        Send resume text to Gemini and get structured JSON back.
+        On rate limit — switch to next model in chain (sticky).
+        On last model rate limited — wait the suggested time and retry once.
         """
 
-        import re as _re
-        import time
-
-        max_retries = 10
-        base_wait   = 15
-
-        for attempt in range(1, max_retries + 1):
+        while True:
             try:
-                result = self.chain.invoke({
+                result = self._chain.invoke({
                     "resume_text":         raw_text,
                     "format_instructions": self.parser.get_format_instructions(),
                 })
@@ -202,23 +223,44 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
             except Exception as e:
                 error_str = str(e)
 
-                match = _re.search(r"try again in ([\d.]+)s", error_str)
-                if match:
-                    wait_time = float(match.group(1)) + 2
+                if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                    current_model = MODEL_CHAIN[self._model_index]
+
+                    if self._fallback():
+                        # Switched to next model — retry immediately
+                        print(
+                            f"[ResumeService] {current_model} rate limited. "
+                            f"Switching to {MODEL_CHAIN[self._model_index]}..."
+                        )
+                        continue
+
+                    else:
+                        # All models exhausted — wait suggested time and retry once
+                        match = re.search(r"retry in ([\d.]+)s", error_str)
+                        wait  = float(match.group(1)) + 2 if match else 30
+                        print(
+                            f"[ResumeService] All models rate limited. "
+                            f"Waiting {wait:.0f}s before final retry..."
+                        )
+                        time.sleep(wait)
+
+                        # Reset to primary for next resume after this wait
+                        self._model_index = 0
+                        self._build_chain()
+
+                        try:
+                            return self._chain.invoke({
+                                "resume_text":         raw_text,
+                                "format_instructions": self.parser.get_format_instructions(),
+                            })
+                        except Exception as final_e:
+                            print(f"[ResumeService] Final retry failed: {final_e}")
+                            return None
+
                 else:
-                    wait_time = base_wait * attempt
-
-                if "rate_limit_exceeded" in error_str and attempt < max_retries:
-                    print(
-                        f"[ResumeService] Rate limited. "
-                        f"Waiting {wait_time:.1f}s before retry "
-                        f"(attempt {attempt}/{max_retries})..."
-                    )
-                    time.sleep(wait_time)
-                    continue
-
-                print(f"[ResumeService] LLM parsing failed after {attempt} attempt(s): {e}")
-                return None
+                    # Non-rate-limit error — don't retry
+                    print(f"[ResumeService] LLM parsing failed: {e}")
+                    return None
 
     def _compute_ri(self, parsed: dict) -> float:
         """
@@ -233,27 +275,20 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
             education           0.05
         """
 
-        # --- Skills (capped at MAX_SKILLS) ---
-        skills_count  = len(parsed.get("skills", []))
-        skills_score  = min(skills_count / self.MAX_SKILLS, 1.0)
+        skills_count     = len(parsed.get("skills", []))
+        skills_score     = min(skills_count / self.MAX_SKILLS, 1.0)
 
-        # --- Projects (capped at MAX_PROJECTS) ---
-        num_projects   = parsed.get("num_projects") or 0
-        projects_score = min(num_projects / self.MAX_PROJECTS, 1.0)
+        num_projects     = parsed.get("num_projects") or 0
+        projects_score   = min(num_projects / self.MAX_PROJECTS, 1.0)
 
-        # --- Experience (capped at MAX_EXPERIENCE years) ---
         years_exp        = parsed.get("years_of_experience") or 0
         experience_score = min(years_exp / self.MAX_EXPERIENCE, 1.0)
 
-        # --- Hackathon (boolean -> float) ---
-        hackathon_score = 1.0 if parsed.get("has_hackathon_experience") else 0.0
+        hackathon_score  = 1.0 if parsed.get("has_hackathon_experience")       else 0.0
+        oss_score        = 1.0 if parsed.get("has_open_source_contributions")   else 0.0
 
-        # --- Open Source (boolean -> float) ---
-        oss_score = 1.0 if parsed.get("has_open_source_contributions") else 0.0
-
-        # --- Education ---
-        edu_level = parsed.get("education_level") or "high_school"
-        edu_score = self.EDUCATION_SCORE.get(edu_level, 0.25)
+        edu_level        = parsed.get("education_level") or "high_school"
+        edu_score        = self.EDUCATION_SCORE.get(edu_level, 0.25)
 
         R_i = (
             0.25 * skills_score     +
