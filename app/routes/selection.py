@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator,model_validator, Field
+from typing import Annotated
 
 from app.services.selection_service import run_autoselect, save_selection
 
@@ -12,25 +13,17 @@ router = APIRouter(prefix="/teams", tags=["Selection"])
 # ----------------------------------------------------------------
 
 class AutoSelectRequest(BaseModel):
-    max_teams:        int
-    beginner_pct:     float
-    intermediate_pct: float
-    advanced_pct:     float
+    max_teams:        Annotated[int,   Field(gt=0,  description="Max Teams to be selected in the Hackathon")] 
+    beginner_pct:     Annotated[float, Field(ge=0,  description="Percentage of beginner team",     examples=[0.0, 0.1, 0.2])]
+    intermediate_pct: Annotated[float, Field(ge=0,  description="Percentage of intermediate team", examples=[0.0, 0.1, 0.2])]
+    advanced_pct:     Annotated[float, Field(ge=0,  description="Percentage of advanced team",     examples=[0.0, 0.1, 0.2])]
 
-    @validator("max_teams")
-    def max_teams_positive(cls, v):
-        if v <= 0:
-            raise ValueError("max_teams must be greater than 0")
-        return v
-
-    @validator("advanced_pct", always=True)
-    def percentages_must_sum_to_one(cls, advanced_pct, values):
-        beginner     = values.get("beginner_pct",     0.0)
-        intermediate = values.get("intermediate_pct", 0.0)
-        total        = round(beginner + intermediate + advanced_pct, 6)
+    @model_validator(mode="after")
+    def percentages_must_sum_to_one(self):
+        total = round(self.beginner_pct + self.intermediate_pct + self.advanced_pct, 6)
         if total != 1.0:
             raise ValueError(f"beginner_pct + intermediate_pct + advanced_pct must sum to 1.0, got {total}")
-        return advanced_pct
+        return self
 
 
 class SaveSelectionRequest(BaseModel):
