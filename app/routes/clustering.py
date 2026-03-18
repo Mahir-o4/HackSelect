@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator, model_validator, Field
+from typing import Annotated
 
 from app.services.clustering_service import run_clustering
 
@@ -12,23 +13,25 @@ router = APIRouter(prefix="/teams", tags=["Teams"])
 # ----------------------------------------------------------------
 
 class WeightsConfig(BaseModel):
-    github: float = 0.7
-    resume: float = 0.3
+    github: Annotated[float, Field(default=0.7, ge=0, le=1, strict=True,
+                                   title='Github weight', description='Enter a decimal value ranging from 0 to 1')]
+    resume: Annotated[float, Field(default=0.3, ge=0, le=1, strict=True, title='Resume weight',
+                                   description='Enter a decimal value ranging from 0 to 1')]
 
-    @validator("resume", always=True)
-    def weights_must_sum_to_one(cls, resume, values):
-        github = values.get("github", 0.0)
-        total  = round(github + resume, 6)
+    @model_validator(mode="after")
+    def weights_must_sum_to_one(self):
+        total = round(self.github + self.resume, 6)
         if total != 1.0:
             raise ValueError(f"Weights must sum to 1.0, got {total}")
-        return resume
+        return self
 
 
 class ClusterRequest(BaseModel):
-    filter_mode: str           = "both"
+    filter_mode: Annotated[str, Field( default="both", title="Filter Mode", description="Add Custom Filters")]
     weights:     WeightsConfig = WeightsConfig()
 
-    @validator("filter_mode")
+    @field_validator("filter_mode")
+    @classmethod
     def valid_filter_mode(cls, v):
         allowed = {"both", "github", "resume"}
         if v not in allowed:
