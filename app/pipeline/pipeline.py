@@ -1,5 +1,6 @@
 import asyncio
 from prisma import Prisma
+import json
 
 from app.services.github_service import GithubService
 from app.services.resume_service import ResumeService
@@ -36,7 +37,7 @@ async def run_pipeline(hackathon_id: str):
 
     github_service = GithubService(GITHUB_TOKEN)
     resume_service = ResumeService()
-    persistence    = PersistenceService()
+    persistence = PersistenceService()
 
     db = Prisma()
     await db.connect()
@@ -51,7 +52,7 @@ async def run_pipeline(hackathon_id: str):
         await db.disconnect()
         return
 
-    total_teams        = len(teams)
+    total_teams = len(teams)
     total_participants = sum(len(t.participant) for t in teams)
 
     yield event("init", "done", f"Found {total_teams} teams and {total_participants} participants.")
@@ -89,7 +90,7 @@ async def run_pipeline(hackathon_id: str):
 
     # Reuse already fetched rows — no extra DB calls
     existing_profile_rows = existing_profiles
-    existing_score_rows   = existing_scores
+    existing_score_rows = existing_scores
 
     existing_repo_rows = await db.githubrepo.find_many(
         where={"participantId": {"in": list(hackathon_pids)}}
@@ -128,10 +129,10 @@ async def run_pipeline(hackathon_id: str):
 
     github_results = await asyncio.gather(*[fetch_github(p) for p in to_fetch])
 
-    github_data  = {}
+    github_data = {}
     profile_list = []
-    github_ok    = 0
-    github_fail  = 0
+    github_ok = 0
+    github_fail = 0
 
     for pid, result in github_results:
         if result:
@@ -172,9 +173,9 @@ async def run_pipeline(hackathon_id: str):
 
     resume_results = await asyncio.gather(*[parse_resume(p) for p in to_parse])
 
-    resume_data  = {}
-    resume_ok    = 0
-    resume_fail  = 0
+    resume_data = {}
+    resume_ok = 0
+    resume_fail = 0
 
     for pid, result in resume_results:
         if result:
@@ -214,20 +215,20 @@ async def run_pipeline(hackathon_id: str):
     # Build existing profile map for dataset-wide maxima
     existing_profile_map = {
         row.participantId: {
-            "total_stars":      row.totalStars      or 0,
-            "total_forks":      row.totalForks      or 0,
-            "original_repos":   row.originalRepos   or 0,
-            "total_repos":      row.totalRepos      or 0,
+            "total_stars":      row.totalStars or 0,
+            "total_forks":      row.totalForks or 0,
+            "original_repos":   row.originalRepos or 0,
+            "total_repos":      row.totalRepos or 0,
             "unique_languages": row.uniqueLanguages or 0,
-            "activity_raw":     row.activityRaw     or 0,
-            "activity_score":   row.activityScore   or 0,
+            "activity_raw":     row.activityRaw or 0,
+            "activity_score":   row.activityScore or 0,
         }
         for row in existing_profile_rows
     }
 
     # Full profile list = existing (this hackathon) + newly fetched
     all_profiles = list(existing_profile_map.values()) + profile_list
-    new_scores   = 0
+    new_scores = 0
 
     if all_profiles:
 
@@ -239,7 +240,8 @@ async def run_pipeline(hackathon_id: str):
                 continue
 
             profile = result["profile"]
-            a_score = compute_activity_score(profile["activity_raw"], maxima["A_max"])
+            a_score = compute_activity_score(
+                profile["activity_raw"], maxima["A_max"])
             profile["activity_score"] = a_score
 
             g_i = compute_gi(profile, maxima)
@@ -277,13 +279,13 @@ async def run_pipeline(hackathon_id: str):
     existing_repo_map = {}
     for row in existing_repo_rows:
         existing_repo_map.setdefault(row.participantId, []).append({
-            "stars":    row.stars    or 0,
+            "stars":    row.stars or 0,
             "language": row.language,
         })
 
-    team_features  = {}
-    features_new   = 0
-    features_skip  = 0
+    team_features = {}
+    features_new = 0
+    features_skip = 0
 
     for team in teams:
 
@@ -304,10 +306,10 @@ async def run_pipeline(hackathon_id: str):
 
             if pid in github_data:
                 profile = github_data[pid]["profile"]
-                repos   = github_data[pid]["repos"]
+                repos = github_data[pid]["repos"]
             elif pid in existing_profile_map:
                 profile = existing_profile_map[pid]
-                repos   = existing_repo_map.get(pid, [])
+                repos = existing_repo_map.get(pid, [])
             else:
                 continue
 
@@ -359,23 +361,104 @@ async def run_pipeline(hackathon_id: str):
 
     summary_service = SummaryService()
 
+    # Fetch teams with existing summary check + resume/repo data
     db = Prisma()
     await db.connect()
 
     try:
-        summary_result = await summary_service.summarize_all_teams(
-            hackathon_id=hackathon_id,
-            db=db,
+        summary_teams = await db.team.find_many(
+            where={"hackathonId": hackathon_id},
+            include={
+                "participant":  True,
+                "teamSummary":  True,
+            }
+        )
+        summary_resume_rows = await db.resume.find_many(
+            where={"participantId": {"in": list(hackathon_pids)}}
+        )
+        summary_repo_rows = await db.githubrepo.find_many(
+            where={"participantId": {"in": list(hackathon_pids)}}
         )
     finally:
         await db.disconnect()
 
+    # Build lookup maps
+    summary_resume_map = {
+        r.participantId: r.rawText
+        for r in summary_resume_rows
+        if r.rawText
+    }
+
+    summary_repo_map: dict[int, list] = {}
+    for r in summary_repo_rows:
+        summary_repo_map.setdefault(r.participantId, []).append({
+            "name":     r.name,
+            "language": r.language,
+            "stars":    r.stars or 0,
+            "is_fork":  r.isFork or False,
+        })
+
+    generated = []
+    skipped = []
+    failed = []
+    results_to_save = []
+
+    summary_sem = asyncio.Semaphore(10)
+
+    async def summarize_team_task(team):
+        async with summary_sem:
+
+            if team.teamSummary:
+                print(
+                    f"  [summary] Skipping {team.teamName or team.teamId} — already has summary.")
+                skipped.append(team.teamId)
+                return
+
+            members = [
+                {
+                    "name":            p.name,
+                    "resume_raw_text": summary_resume_map.get(p.participantId),
+                    "repos":           summary_repo_map.get(p.participantId, []),
+                }
+                for p in team.participant
+            ]
+
+            if not members:
+                print(
+                    f"  [summary] Skipping {team.teamName or team.teamId} — no members.")
+                skipped.append(team.teamId)
+                return
+
+            result = await summary_service.summarize_team(
+                team_name=team.teamName or team.teamId,
+                members=members,
+            )
+
+            if not result:
+                print(f"  [summary] FAILED — {team.teamName or team.teamId}")
+                failed.append(team.teamId)
+                return
+
+            results_to_save.append({
+                "teamId":      team.teamId,
+                "summaryText": json.dumps(result),
+            })
+            generated.append(team.teamId)
+            print(f"  [summary] Done — {team.teamName or team.teamId}")
+
+    await asyncio.gather(*[summarize_team_task(team) for team in summary_teams])
+
+    # Single batch write via persistence
+    await persistence.connect()
+    await persistence.save_team_summaries(results_to_save)
+    await persistence.disconnect()
+
     yield event(
         "summary", "done",
         f"Summaries complete. "
-        f"Generated: {summary_result['generated']}, "
-        f"Skipped: {summary_result['skipped']}, "
-        f"Failed: {summary_result['failed']}."
+        f"Generated: {len(generated)}, "
+        f"Skipped: {len(skipped)}, "
+        f"Failed: {len(failed)}."
     )
 
     # ============================================================

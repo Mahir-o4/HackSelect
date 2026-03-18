@@ -185,6 +185,24 @@ class PersistenceService:
             skip_duplicates=True
         )
 
+    # ---------------------------
+    # Team Summaries
+    # ---------------------------
+
+    async def save_team_summaries(self, results: list[dict]):
+        """
+        results: [ { "teamId": str, "summaryText": str } ]
+        Persists to TeamSummary table in one batch write.
+        """
+
+        if not results:
+            return
+
+        await self.db.teamsummary.create_many(
+            data=results,
+            skip_duplicates=True,
+        )
+
     # Note: TeamResult persistence is handled by clustering_service.py
     # via individual upsert calls, since clustering can be re-run
     # multiple times with different filter modes.
