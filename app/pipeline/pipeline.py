@@ -161,7 +161,7 @@ async def run_pipeline(hackathon_id: str):
     yield event("resume", "in_progress", f"Processing {len(to_parse)} resumes...")
 
     # Semaphore caps concurrent Groq API calls to avoid rate limiting
-    resume_sem = asyncio.Semaphore(2)
+    resume_sem = asyncio.Semaphore(10)
 
     async def parse_resume(p):
         async with resume_sem:
