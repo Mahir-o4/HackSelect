@@ -4,6 +4,7 @@ from prisma import Prisma
 from app.services.github_service import GithubService
 from app.services.resume_service import ResumeService
 from app.services.persistence_service import PersistenceService
+from app.services.summary_service import SummaryService
 
 from app.compute.scoring import (
     compute_dataset_maxima,
@@ -349,6 +350,37 @@ async def run_pipeline(hackathon_id: str):
     await persistence.disconnect()
 
     yield event("persistence", "done", "All data saved successfully.")
+
+    # ============================================================
+    # Stage 6 — Summary
+    # ============================================================
+
+    yield event("summary", "in_progress", "Generating LLM summaries for all teams...")
+
+    summary_service = SummaryService()
+
+    db = Prisma()
+    await db.connect()
+
+    try:
+        summary_result = await summary_service.summarize_all_teams(
+            hackathon_id=hackathon_id,
+            db=db,
+        )
+    finally:
+        await db.disconnect()
+
+    yield event(
+        "summary", "done",
+        f"Summaries complete. "
+        f"Generated: {summary_result['generated']}, "
+        f"Skipped: {summary_result['skipped']}, "
+        f"Failed: {summary_result['failed']}."
+    )
+
+    # ============================================================
+    # Complete
+    # ============================================================
 
     yield event(
         "complete", "done",
