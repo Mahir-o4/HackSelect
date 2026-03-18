@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 
-import CreateHack from "@/components/dashboard/CreateHack";
+import CreateHack from "@/components/dashboard/CreateHackModal";
 
 interface Hackathon {
   name: string;
