@@ -6,21 +6,20 @@ import Papa from "papaparse";
 import { Button } from "@/components/ui/button";
 import { UploadCloud, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onCreate: (hackathon: { name: string; participants: string[] }) => void;
+  onCreate: (name: string, file: File | null) => Promise<void>;
 }
 
 export default function CreateHack({ open, onClose, onCreate }: Props) {
   const [name, setName] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [isPending, setIsPending] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleCSV = (f: File) => {
     setFile(f);
@@ -41,57 +40,15 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!name) return toast.error("Please enter a hackathon name");
-    if (!file) return toast.error("Please upload a CSV file");
-
-    setIsPending(true);
-
-    try {
-      // step 1 - create hackathon
-      const hackathonRes = await fetch("/api/hackathon", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-
-      const hackathonData = await hackathonRes.json();
-
-      if (!hackathonRes.ok) {
-        toast.error(hackathonData.error || "Failed to create hackathon");
-        return;
-      }
-
-      // step 2 - upload csv with hackathonId
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("hackathonId", hackathonData.hackathonId);
-
-      const csvRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const csvData = await csvRes.json();
-
-      if (!csvRes.ok) {
-        toast.error(csvData.error || "Failed to upload CSV");
-        return;
-      }
-
-      toast.success(`Hackathon created with ${csvData.totalTeams} teams and ${csvData.totalParticipants} participants`);
-      onCreate({ name, participants });
-      setName("");
-      setParticipants([]);
-      setFileName("");
-      setFile(null);
-      onClose();
-
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
-    } finally {
-      setIsPending(false);
-    }
+    if (!name) return;
+    setLoading(true);
+    await onCreate(name, file);
+    setName("");
+    setFile(null);
+    setParticipants([]);
+    setFileName("");
+    setLoading(false);
+    onClose();
   };
 
   if (!open) return null;
@@ -109,6 +66,7 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
+
           className="w-105 bg-card border border-border rounded-2xl p-6 space-y-6 shadow-xl"
         >
           {/* Header */}
@@ -143,17 +101,24 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
             className="cursor-pointer border border-dashed border-border rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 hover:border-accent/60 hover:bg-accent/5 transition"
           >
             <UploadCloud className="w-7 h-7 text-muted-foreground" />
+
             <div className="text-sm text-muted-foreground">
-              <span className="text-foreground font-medium">Click to upload</span>{" "}
+              <span className="text-foreground font-medium">
+                Click to upload
+              </span>{" "}
               or drag & drop
             </div>
+
             <p className="text-xs text-muted-foreground">CSV files only</p>
+
             <input
               ref={fileInput}
               type="file"
               accept=".csv"
               hidden
-              onChange={(e) => e.target.files && handleCSV(e.target.files[0])}
+              onChange={(e) =>
+                e.target.files && handleCSV(e.target.files[0])
+              }
             />
           </div>
 
@@ -162,7 +127,9 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
             <div className="flex items-center gap-3 bg-muted/30 border border-border rounded-lg p-3">
               <FileText className="w-4 h-4 text-accent" />
               <div className="flex flex-col text-sm">
-                <span className="font-medium text-foreground">{fileName}</span>
+                <span className="font-medium text-foreground">
+                  {fileName}
+                </span>
                 <span className="text-muted-foreground text-xs">
                   {participants.length} participants loaded
                 </span>
@@ -174,7 +141,9 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
           {participants.length > 0 && (
             <div className="max-h-32 overflow-y-auto border border-border rounded-lg p-3 text-sm space-y-1">
               {participants.slice(0, 8).map((p, i) => (
-                <div key={i} className="text-muted-foreground">{p}</div>
+                <div key={i} className="text-muted-foreground">
+                  {p}
+                </div>
               ))}
               {participants.length > 8 && (
                 <div className="text-xs text-muted-foreground">
@@ -186,15 +155,12 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={onClose} disabled={isPending}>
+            <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              variant="hero"
-              disabled={!name || !file || isPending}
-              onClick={handleSubmit}
-            >
-              {isPending ? "Creating..." : "Create Hackathon"}
+
+            <Button variant="hero" disabled={!name || loading} onClick={handleSubmit}>
+              {loading ? "Creating..." : "Create Hackathon"}
             </Button>
           </div>
         </motion.div>

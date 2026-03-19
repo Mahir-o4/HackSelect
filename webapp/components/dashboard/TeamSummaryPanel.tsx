@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+//THIS COMPONENT IS NOT USED - NOT FINAL CODE
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -103,7 +105,7 @@ export default function TeamSummaryPanel({ team, onClose }: TeamSummaryPanelProp
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed right-0 top-0 h-full w-[380px] bg-background border-l border-border/60 shadow-2xl z-40 flex flex-col overflow-hidden"
+          className="fixed right-0 top-0 h-full w-95 bg-background border-l border-border/60 shadow-2xl z-40 flex flex-col overflow-hidden"
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40 shrink-0">
