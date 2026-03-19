@@ -56,7 +56,6 @@ class SummaryService:
     def __init__(self):
         self.available_models = [
             "gemini-3.1-flash-lite-preview",
-            "gemini-3.1-pro-preview",
             "gemini-3-flash-preview",
             "gemini-2.5-flash-lite",
             "gemini-2.5-flash",
@@ -151,7 +150,7 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
 
             except Exception as e:
                 print(
-                    f"[SummaryService] Unexpected error for {team_name} with {model_name}: {e}")
+                    f"[SummaryService] Unexpected error for {team_name} with {model_name}. Switching model...")
                 self.current_model_index = (
                     self.current_model_index + 1) % len(self.available_models)
                 continue
