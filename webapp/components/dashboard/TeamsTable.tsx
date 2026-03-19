@@ -61,9 +61,8 @@ export default function TeamsTable({ teams, onSelectTeam, selectedTeamId }: Team
             return (
               <React.Fragment key={team.teamId}>
                 <tr
-                  className={`border-b border-border/20 transition-colors ${
-                    isSelected ? "bg-accent/5" : "hover:bg-muted/20"
-                  }`}
+                  className={`border-b border-border/20 transition-colors ${isSelected ? "bg-accent/5" : "hover:bg-muted/20"
+                    }`}
                 >
                   <td className="px-4 py-3.5 text-muted-foreground font-mono text-xs border-r border-border/20">
                     {index + 1}
@@ -101,11 +100,10 @@ export default function TeamsTable({ teams, onSelectTeam, selectedTeamId }: Team
                     <button
                       onClick={() => onSelectTeam(team)}
                       title="View summary"
-                      className={`p-1.5 rounded-lg border transition-all ${
-                        isSelected
+                      className={`p-1.5 rounded-lg border transition-all ${isSelected
                           ? "border-accent/60 bg-accent/10 text-foreground"
                           : "border-border/50 text-muted-foreground hover:text-foreground hover:border-accent/40 hover:bg-accent/5"
-                      }`}
+                        }`}
                     >
                       <ScrollText className="w-3.5 h-3.5" />
                     </button>

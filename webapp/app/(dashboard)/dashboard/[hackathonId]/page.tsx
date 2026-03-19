@@ -57,6 +57,7 @@ export default function HackathonDashboardPage() {
         hackathonName={hackathonName || hackathonId}
         totalParticipants={totalParticipants}
         totalTeams={teams.length}
+        hackathonId={hackathonId}
       />
       <div className="flex-1 overflow-hidden flex">
         <TeamsTable
