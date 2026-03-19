@@ -11,8 +11,10 @@ router = APIRouter(prefix="/summary", tags=["Summary"])
 # Type aliases for path parameters
 # ----------------------------------------------------------------
 
-HackathonId = Annotated[str, Field(min_length=1, description="Unique hackathon identifier")]
-TeamId      = Annotated[str, Field(min_length=1, description="Unique team identifier")]
+HackathonId = Annotated[str, Field(
+    min_length=1, description="Unique hackathon identifier")]
+TeamId = Annotated[str, Field(
+    min_length=1, description="Unique team identifier")]
 
 
 # ----------------------------------------------------------------
@@ -36,19 +38,36 @@ async def get_all_summaries(hackathon_id: HackathonId):
     await db.connect()
 
     try:
+        hackathon = await db.hackathon.find_unique(
+            where={"id": hackathon_id}
+        )
+
+        if not hackathon :
+            raise HTTPException(
+                status_code=404,
+                detail=f"Hackathon: {hackathon_id} does not exist."
+            )
+
         rows = await db.teamsummary.find_many(
             where={"team": {"hackathonId": hackathon_id}},
             include={"team": True}
         )
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Hackathon: {hackathon_id} exists but no summaries found. Upload teams first."
+            )
+
     finally:
         await db.disconnect()
 
     return [
         TeamSummaryResponse(
-            teamId      = r.teamId,
-            teamName    = r.team.teamName    if r.team else None,
-            hackathonId = r.team.hackathonId if r.team else None,
-            summary     = json.loads(r.summaryText) if r.summaryText else None,
+            teamId=r.teamId,
+            teamName=r.team.teamName if r.team else None,
+            hackathonId=r.team.hackathonId if r.team else None,
+            summary=json.loads(r.summaryText) if r.summaryText else None,
         )
         for r in rows
     ]
@@ -76,8 +95,8 @@ async def get_team_summary(team_id: TeamId):
         )
 
     return TeamSummaryResponse(
-        teamId      = row.teamId,
-        teamName    = row.team.teamName    if row.team else None,
-        hackathonId = row.team.hackathonId if row.team else None,
-        summary     = json.loads(row.summaryText) if row.summaryText else None,
+        teamId=row.teamId,
+        teamName=row.team.teamName if row.team else None,
+        hackathonId=row.team.hackathonId if row.team else None,
+        summary=json.loads(row.summaryText) if row.summaryText else None,
     )
