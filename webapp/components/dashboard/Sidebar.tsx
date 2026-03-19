@@ -234,50 +234,8 @@ const Sidebar = ({ hackathons, onCreateHackathon }: SidebarProps) => {
         </button>
       </nav>
 
-      {/* Footer */}
-      <div
-        className="px-2 py-3 shrink-0"
-        style={{ borderTop: "1px solid hsl(var(--border))" }}
-      >
-        <button
-          className={cn(
-            "w-full flex items-center rounded-lg transition-all duration-150",
-            collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-2 gap-2.5"
-          )}
-          style={{
-            color: "hsl(var(--muted-foreground))",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.background = "hsl(var(--destructive) / 0.08)";
-            btn.style.color = "hsl(var(--destructive))";
-          }}
-          onMouseLeave={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.background = "transparent";
-            btn.style.color = "hsl(var(--muted-foreground))";
-          }}
-        >
-          <LogOut className="w-4 h-4 shrink-0" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.1 }}
-                className="text-sm"
-                style={{ letterSpacing: "-0.005em" }}
-              >
-                Logout
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
-      </div>
+      
+      
     </motion.aside>
   );
 };

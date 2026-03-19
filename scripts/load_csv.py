@@ -2,6 +2,30 @@ import csv
 from collections import defaultdict
 import json
 
+"""
+teams layout 
+[
+    {
+        "team_id",
+        "team_name",
+        "members": [
+            {
+                "name",
+                "github",
+                "resume_url",
+                "linkedin",
+                "email",
+                "phone"
+            }, 
+            {
+                ...
+            }
+        ]
+    }
+    
+]
+"""
+
 def load_teams_from_csv(file_path):
     teams = {}
 

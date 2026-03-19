@@ -6,6 +6,7 @@ export const GET = async (req: NextRequest) => {
         const teams = await prisma.team.findMany({
             include: {
                 participant: true, // we can include other fields according to our needs
+                hackathon: true
             }
         })
 
