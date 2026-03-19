@@ -1,14 +1,14 @@
 import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export const GET = async (req: NextRequest, { params }: { params: { teamId: string } }) => {
+export const GET = async (req: NextRequest, { params }: { params: Promise<{ hackathonId: string; teamId: string }> }) => {
     try {
-        const { teamId } = await params
+        const { hackathonId, teamId } = await params
 
-        if (!teamId) {
+        if (!hackathonId || !teamId) {
             return NextResponse.json(
                 {
-                    error: "teamID is required"
+                    error: "hackathonId and teamId required"
                 },
                 {
                     status: 400
@@ -16,20 +16,33 @@ export const GET = async (req: NextRequest, { params }: { params: { teamId: stri
             )
         }
 
-        const team = await prisma.team.findUnique({
-            where: { teamId },
+        const team = await prisma.team.findFirst({
+            where: {
+                teamId,
+                hackathonId
+            },
             include: {
-                participant: true
+                participant: {
+                    include: {
+                        githubProfile: true,
+                        resume: true,
+                        memberScore: true,
+                    }
+                },
+                teamResult: true,
+                teamFeature: true,
+                teamSummary: true,
             }
         })
 
         if (!team) {
             return NextResponse.json(
                 {
-                    error: "No team found with that Team ID"
+                    error: "Team not found"
                 },
                 {
                     status: 404
+
                 }
             )
         }
@@ -45,63 +58,9 @@ export const GET = async (req: NextRequest, { params }: { params: { teamId: stri
         )
     } catch (err) {
         console.error(err)
-
         return NextResponse.json(
             {
                 error: "Internal Server Error!"
-            },
-            {
-                status: 500
-            }
-        )
-    }
-}
-
-
-export const DELETE = async (req: NextRequest, { params }: { params: { teamId: string } }) => {
-    try {
-        const { teamId } = await params
-
-        if (!teamId) {
-            return NextResponse.json(
-                {
-                    error: "teamId required"
-                },
-                {
-                    status: 400
-                }
-            )
-        }
-
-        const team = await prisma.team.delete({
-            where: { teamId }
-        })
-
-        if (!team) {
-            return NextResponse.json(
-                {
-                    error: "Team not found!"
-                },
-                {
-                    status: 404
-                }
-            )
-        }
-
-        return NextResponse.json(
-            {
-                success: true
-            },
-            {
-                status: 200
-            }
-        )
-    } catch (err) {
-        console.error(err)
-
-        return NextResponse.json(
-            {
-                error: "Internal Server Error"
             },
             {
                 status: 500
