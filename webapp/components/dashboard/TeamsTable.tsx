@@ -1,6 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -17,10 +14,11 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, ChevronsUpDown,
-  ExternalLink, Plus, Minus,
+  ExternalLink, Plus, Minus, UserPlus,
   GitCompare, Pencil, SlidersHorizontal, Save, Search,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
@@ -267,22 +265,24 @@ export default function TeamsTable({
               Details
             </button>
             {removeMode && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onRemoveTeam(team.teamId)}
-                className="w-6 h-6 rounded-md flex items-center justify-center border"
-                style={{ border: "1px solid hsl(var(--destructive) / 0.4)", color: "hsl(var(--destructive))", background: "hsl(var(--destructive) / 0.05)" }}
+                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Minus className="w-3 h-3" />
-              </button>
+              </Button>
             )}
             {addMode && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => onAddTeam(team.teamId)}
-                className="w-6 h-6 rounded-md flex items-center justify-center border"
-                style={{ border: "1px solid hsl(var(--accent) / 0.4)", color: "hsl(var(--accent))", background: "hsl(var(--accent) / 0.05)" }}
+                className="h-6 w-6"
               >
                 <Plus className="w-3 h-3" />
-              </button>
+              </Button>
             )}
           </div>
         );
@@ -512,6 +512,22 @@ export default function TeamsTable({
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
                   {search ? `No teams match "${search}"` : "No teams here."}
+                </TableCell>
+              </TableRow>
+            )}
+
+            {/* ── Add teams row — only in edit mode on selected tab ── */}
+            {removeMode && (
+              <TableRow className="hover:bg-transparent border-0">
+                <TableCell colSpan={columns.length} className="py-4 text-center">
+                  <Button
+                    variant="hero"
+                    size="sm"
+                    onClick={() => onTabChange("unselected")}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    + Add teams
+                  </Button>
                 </TableCell>
               </TableRow>
             )}
