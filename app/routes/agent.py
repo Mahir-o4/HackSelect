@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 import json
 import uuid
 
-from app.agent.runner import create_agent
+from app.agent.runner import HackathonAgent
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
 
@@ -94,6 +94,7 @@ async def chat(body: ChatRequest):
 
     async def event_generator():
 
+        # Always yield meta first
         yield {
             "data": json.dumps({
                 "type":       "meta",
@@ -111,95 +112,113 @@ async def chat(body: ChatRequest):
 
         history.append(HumanMessage(content=body.message))
 
-        agent = create_agent(hackathon_id)
-
+        ha = HackathonAgent(hackathon_id)
         full_response = []
 
-        try:
-            async for event in agent.astream_events(
-                {"messages": history},
-                version="v2",
-            ):
-                kind = event.get("event")
-                # ── print SQL query being executed ──────────────────────────
-                if kind == "on_tool_start":
-                    tool_input = event.get("data", {}).get("input", {})
-                    query = tool_input.get("query", "")
-                    if query:
-                        print(f"\n[Agent] SQL QUERY:\n{query}\n")
+        while not ha.models_exhausted:
 
-                # ── print SQL result returned from DB ───────────────────────
-                elif kind == "on_tool_end":
+            agent = ha.build()   # ← build agent with current model
+
+            try:
+                async for event in agent.astream_events(
+                    {"messages": history},
+                    version="v2",
+                ):
+                    kind = event.get("event")
+
+                    # ── SQL query being executed ────────────────────────
+                    if kind == "on_tool_start":
+                        query = event.get("data", {}).get(
+                            "input", {}).get("query", "")
+                        if query:
+                            print(f"\n[Agent] SQL QUERY:\n{query}\n")
+
+                    # ── SQL result returned ─────────────────────────────
+                    elif kind == "on_tool_end":
                         print(f"[Agent] SQL RESULT GENERATED.")
 
-                # ── stream LLM tokens to client ─────────────────────────────
-                elif kind == "on_chat_model_stream":
-                    chunk = event.get("data", {}).get("chunk")
+                    # ── LLM token chunk ─────────────────────────────────
+                    elif kind == "on_chat_model_stream":
+                        chunk = event.get("data", {}).get("chunk")
 
-                    if not chunk or not hasattr(chunk, "content"):
-                        continue
+                        if not chunk or not hasattr(chunk, "content"):
+                            continue
 
-                    content = chunk.content
+                        content = chunk.content
 
-                    if isinstance(content, str):
-                        text = content
-                    elif isinstance(content, list):
-                        text = "".join(
-                            item.get("text", "")
-                            for item in content
-                            if isinstance(item, dict)
-                            and item.get("type") == "text"
-                        )
-                    else:
-                        text = ""
+                        if isinstance(content, str):
+                            text = content
+                        elif isinstance(content, list):
+                            text = "".join(
+                                item.get("text", "")
+                                for item in content
+                                if isinstance(item, dict)
+                                and item.get("type") == "text"
+                            )
+                        else:
+                            text = ""
 
-                    if not text:
-                        continue
+                        if not text:
+                            continue
 
-                    full_response.append(text)
+                        full_response.append(text)
+                        yield {
+                            "data": json.dumps({
+                                "type": "token",
+                                "data": text,
+                            })
+                        }
+
+                # ── stream completed successfully ───────────────────────
+                break
+
+            except Exception as e:
+                # Switch model for ANY exception — quota or otherwise
+                print(f"[Agent] Error with model {ha.current_model}: \n ERROR: {e}.")
+                print(f"[Agent] Switching model...")
+
+                switched = ha.switch_model()
+                full_response = []   # reset partial tokens
+
+                if not switched:
+                    print("[Agent] CRITICAL: All models exhausted.")
+                    history.pop()
                     yield {
                         "data": json.dumps({
-                            "type": "token",
-                            "data": text,
+                            "type": "error",
+                            "data": "All models exhausted. Try again later.",
                         })
                     }
+                    return
 
-            ai_response = "".join(full_response)
+                # switched successfully — while loop retries with new model
+                continue
 
-            if ai_response:
-                history.append(AIMessage(content=ai_response))
-                sessions[session_id]["history"] = history
-                print(
-                    f"[Agent] Session {session_id} — saved. History: {len(history)} messages.")
-            else:
-                print(
-                    f"[Agent] Session {session_id} — empty response, history not updated.")
+        # ── save completed response to session history ──────────────
+        ai_response = "".join(full_response)
 
-            yield {
-                "data": json.dumps({
-                    "type": "done",
-                    "data": "",
-                })
-            }
+        if ai_response:
+            history.append(AIMessage(content=ai_response))
+            sessions[session_id]["history"] = history
+            print(
+                f"[Agent] Session {session_id} — saved. History: {len(history)} messages.")
+        else:
+            print(
+                f"[Agent] Session {session_id} — empty response, history not updated.")
 
-        except Exception as e:
-            history.pop()
-            print(f"[Agent] Session {session_id} — ERROR: {e}")
-            yield {
-                "data": json.dumps({
-                    "type": "error",
-                    "data": str(e),
-                })
-            }
+        yield {
+            "data": json.dumps({
+                "type": "done",
+                "data": "",
+            })
+        }
 
     return EventSourceResponse(event_generator())
 
 
 @router.delete("/chat/{session_id}")
 async def clear_session(session_id: str):
-    """
-    Clears the conversation history for a session.
-    """
+    """Clears the conversation history for a session."""
 
     if session_id in sessions:
         msg_count = len(sessions[session_id]["history"])
@@ -214,9 +233,7 @@ async def clear_session(session_id: str):
 
 @router.get("/sessions")
 async def list_sessions():
-    """
-    Returns all active session IDs and their message counts.
-    """
+    """Returns all active session IDs and their message counts."""
 
     print(f"[Agent] Active sessions: {len(sessions)}")
     for sid, data in sessions.items():
@@ -226,8 +243,8 @@ async def list_sessions():
     return {
         "sessions": {
             sid: {
-                "hackathon_id":    data["hackathon_id"],
-                "message_count":   len(data["history"]),
+                "hackathon_id":  data["hackathon_id"],
+                "message_count": len(data["history"]),
             }
             for sid, data in sessions.items()
         }
