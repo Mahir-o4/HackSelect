@@ -47,37 +47,63 @@ Guidelines:
 -- ---------------------------------------------------------------
 """
 
+# ----------------------------------------------------------------
+# Agent class
+# ----------------------------------------------------------------
 
-# ----------------------------------------------------------------
-# Agent factory
-# ----------------------------------------------------------------
-ALL_MODELS = [
+
+class HackathonAgent:
+
+    all_models = [
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+    ]
+
+    def __init__(self, hackathon_id: str):
+        self.hackathon_id = hackathon_id
+        self.current_model_index = 0
+        self.prompt = BASE_PROMPT.format(
+            schema=DB_SCHEMA,
+            hackathon_id=hackathon_id
+        )
+
+    @property
+    def current_model(self) -> str:
+        return self.all_models[self.current_model_index]
     
-]
 
-def create_agent(hackathon_id: str):
-    """
-    Creates and returns a LangGraph ReAct agent scoped to a specific hackathon.
-    - Gemini as the LLM
-    - execute_sql as the only tool
-    - Full DB schema + hackathon scope in the system prompt
-    """
+    @property
+    def models_exhausted(self) -> bool:
+        return self.current_model_index >= len(self.all_models)
+    
+    def switch_model(self) -> bool:
+        """
+        Advances to the next model in the fallback chain.
+        Returns True if a next model is available, False if all exhausted.
+        """
+        self.current_model_index += 1
+        if self.models_exhausted:
+            print("[HackathonAgent] CRITICAL: All models exhausted.")
+            return False
+        print(f"[HackathonAgent] → Switched to model: {self.current_model}")
+        return True
 
-    prompt = BASE_PROMPT.format(
-        schema       = DB_SCHEMA,
-        hackathon_id = hackathon_id,
-    )
+    def build(self):
+        """Builds and returns a LangGraph ReAct agent with the current model."""
 
-    llm = ChatGoogleGenerativeAI(
-        model         = "gemini-3.1-flash-lite-preview",
-        google_api_key = GEMINI_API_KEY,
-        temperature   = 0.3,
-    )
+        print(f"[HackathonAgent] Building agent with model: {self.current_model}")
 
-    agent = create_react_agent(
-        model  = llm,
-        tools  = [execute_sql],
-        prompt = SystemMessage(content=prompt),
-    )
+        llm = ChatGoogleGenerativeAI(
+            model          = self.current_model,
+            google_api_key = GEMINI_API_KEY,
+            temperature    = 0.3,
+        )
 
-    return agent
+        return create_react_agent(
+            model  = llm,
+            tools  = [execute_sql],
+            prompt = SystemMessage(content=self.prompt),
+        )
+
