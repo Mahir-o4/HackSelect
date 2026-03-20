@@ -1,51 +1,122 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Github, FileText, Linkedin, Cpu, CheckCircle2 } from "lucide-react";
+import { Github, FileText, Cpu, CheckCircle2, AlertCircle } from "lucide-react";
 
-const STEPS = [
-  { icon: <Github className="w-4 h-4" />, label: "Fetching GitHub profiles", duration: 2500 },
-  { icon: <FileText className="w-4 h-4" />, label: "Parsing resumes", duration: 2500 },
-  { icon: <Linkedin className="w-4 h-4" />, label: "Scanning LinkedIn data", duration: 2000 },
-  { icon: <Cpu className="w-4 h-4" />, label: "Running ML scoring model", duration: 3000 },
-];
+// Stage → icon + label mapping
+const STAGE_CONFIG: Record<string, { icon: React.ReactNode; label: string }> = {
+  init: { icon: <Cpu className="w-4 h-4" />, label: "Initializing pipeline" },
+  github: { icon: <Github className="w-4 h-4" />, label: "Fetching GitHub profiles" },
+  resume: { icon: <FileText className="w-4 h-4" />, label: "Parsing resumes" },
+  scoring: { icon: <Cpu className="w-4 h-4" />, label: "Computing scores" },
+  features: { icon: <Cpu className="w-4 h-4" />, label: "Building feature vectors" },
+  persistence: { icon: <Cpu className="w-4 h-4" />, label: "Saving to database" },
+  complete: { icon: <CheckCircle2 className="w-4 h-4" />, label: "Pipeline complete" },
+};
+
+interface SSEEvent {
+  stage: string;
+  status: "in_progress" | "done" | "error";
+  message: string;
+}
+
+interface StageEntry {
+  stage: string;
+  status: "in_progress" | "done" | "error";
+  message: string;
+}
 
 interface AnalysisLoaderProps {
+  hackathonId: string;
   onComplete: () => void;
 }
 
-export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
+export default function AnalysisLoader({ hackathonId, onComplete }: AnalysisLoaderProps) {
+  const [stages, setStages] = useState<StageEntry[]>([]);
   const [progress, setProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [doneSteps, setDoneSteps] = useState<number[]>([]);
-
-  const TOTAL_DURATION = 10000;
+  const [error, setError] = useState<string | null>(null);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    const start = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min((elapsed / TOTAL_DURATION) * 100, 100);
-      setProgress(pct);
 
-      // Advance steps
-      let accumulated = 0;
-      for (let i = 0; i < STEPS.length; i++) {
-        accumulated += STEPS[i].duration;
-        if (elapsed >= accumulated && !doneSteps.includes(i)) {
-          setDoneSteps((prev) => [...prev, i]);
-          setCurrentStep(Math.min(i + 1, STEPS.length - 1));
+    const controller = new AbortController();
+
+    const runPipeline = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/pipeline/run/${hackathonId}`, {
+          method: "POST",
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          setError("Failed to start pipeline.");
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // SSE lines come as "data: {...}\n\n"
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? ""; // keep incomplete last line
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            try {
+              const event: SSEEvent = JSON.parse(trimmed.slice(5).trim());
+
+              setStages((prev) => {
+                const existing = prev.findIndex((s) => s.stage === event.stage);
+                if (existing !== -1) {
+                  const updated = [...prev];
+                  updated[existing] = { stage: event.stage, status: event.status, message: event.message };
+                  return updated;
+                }
+                return [...prev, { stage: event.stage, status: event.status, message: event.message }];
+              });
+
+              const ORDERED_STAGES = ["init", "github", "resume", "scoring", "features", "persistence", "complete"];
+              const stageIndex = ORDERED_STAGES.indexOf(event.stage);
+              if (event.status === "done" && stageIndex !== -1) {
+                setProgress(Math.round(((stageIndex + 1) / ORDERED_STAGES.length) * 100));
+              }
+
+              if (event.stage === "complete" && event.status === "done") {
+                setTimeout(() => onCompleteRef.current(), 600);
+                return;
+              }
+
+              if (event.status === "error") {
+                setError(event.message);
+                return;
+              }
+            } catch {
+              // malformed line — skip
+            }
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          setError("Connection to pipeline lost. Please try again.");
         }
       }
+    };
 
-      if (pct >= 100) {
-        clearInterval(interval);
-        setTimeout(onComplete, 400);
-      }
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
+    runPipeline();
+
+    return () => controller.abort();
+  }, [hackathonId]);
 
   return (
     <motion.div
@@ -83,94 +154,143 @@ export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
         {/* Progress bar */}
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs text-muted-foreground font-medium">Analysing teams...</span>
-            <span className="text-xs font-mono" style={{ color: "hsl(var(--accent))" }}>
+            <span className="text-xs text-muted-foreground font-medium">
+              {error ? "Pipeline failed" : "Analysing teams..."}
+            </span>
+            <span className="text-xs font-mono" style={{ color: error ? "hsl(var(--destructive))" : "hsl(var(--accent))" }}>
               {Math.round(progress)}%
             </span>
           </div>
-          <div
-            className="w-full h-1.5 rounded-full overflow-hidden"
-            style={{ background: "hsl(var(--muted))" }}
-          >
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "hsl(var(--muted))" }}>
             <motion.div
               className="h-full rounded-full"
               style={{
-                background: "linear-gradient(90deg, hsl(var(--accent) / 0.7), hsl(var(--accent)))",
+                background: error
+                  ? "hsl(var(--destructive))"
+                  : "linear-gradient(90deg, hsl(var(--accent) / 0.7), hsl(var(--accent)))",
                 width: `${progress}%`,
-                boxShadow: "0 0 8px hsl(var(--accent) / 0.6)",
+                boxShadow: error ? "none" : "0 0 8px hsl(var(--accent) / 0.6)",
               }}
-              transition={{ duration: 0.1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
             />
           </div>
         </div>
 
-        {/* Step list */}
+        {/* Live SSE event list */}
         <div className="flex flex-col gap-2.5">
-          <AnimatePresence>
-            {STEPS.map((step, i) => {
-              const isDone = doneSteps.includes(i);
-              const isActive = currentStep === i && !isDone;
+          <AnimatePresence initial={false}>
+            {stages.map((entry, i) => {
+              const cfg = STAGE_CONFIG[entry.stage] ?? {
+                icon: <Cpu className="w-4 h-4" />,
+                label: entry.stage,
+              };
+              const isDone = entry.status === "done";
+              const isActive = entry.status === "in_progress";
+              const isError = entry.status === "error";
+
               return (
                 <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: isDone || isActive ? 1 : 0.3, x: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="flex items-center gap-3"
+                  key={entry.stage}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex flex-col gap-0.5"
                 >
-                  <div
-                    className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-all duration-300"
-                    style={{
-                      background: isDone
-                        ? "hsl(var(--accent) / 0.15)"
-                        : isActive
-                        ? "hsl(var(--accent) / 0.08)"
-                        : "hsl(var(--muted) / 0.5)",
-                      border: `1px solid ${
-                        isDone
-                          ? "hsl(var(--accent) / 0.4)"
-                          : isActive
-                          ? "hsl(var(--accent) / 0.25)"
-                          : "hsl(var(--border))"
-                      }`,
-                      color: isDone
-                        ? "hsl(var(--accent))"
-                        : isActive
-                        ? "hsl(var(--accent) / 0.8)"
-                        : "hsl(var(--muted-foreground) / 0.5)",
-                    }}
-                  >
-                    {isDone ? (
-                      <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--accent))" }} />
-                    ) : (
-                      <span>{step.icon}</span>
-                    )}
+                  <div className="flex items-center gap-3">
+                    {/* Icon badge */}
+                    <motion.div
+                      animate={isActive ? { opacity: [1, 0.4, 1] } : { opacity: 1 }}
+                      transition={isActive ? { duration: 1.2, repeat: Infinity } : {}}
+                      className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+                      style={{
+                        background: isError
+                          ? "hsl(var(--destructive) / 0.15)"
+                          : isDone
+                            ? "hsl(var(--accent) / 0.15)"
+                            : isActive
+                              ? "hsl(var(--accent) / 0.08)"
+                              : "hsl(var(--muted) / 0.5)",
+                        border: `1px solid ${isError
+                          ? "hsl(var(--destructive) / 0.4)"
+                          : isDone
+                            ? "hsl(var(--accent) / 0.4)"
+                            : isActive
+                              ? "hsl(var(--accent) / 0.25)"
+                              : "hsl(var(--border))"
+                          }`,
+                        color: isError
+                          ? "hsl(var(--destructive))"
+                          : isDone
+                            ? "hsl(var(--accent))"
+                            : isActive
+                              ? "hsl(var(--accent) / 0.8)"
+                              : "hsl(var(--muted-foreground) / 0.5)",
+                      }}
+                    >
+                      {isError ? (
+                        <AlertCircle className="w-3.5 h-3.5" />
+                      ) : isDone ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "hsl(var(--accent))" }} />
+                      ) : (
+                        <span>{cfg.icon}</span>
+                      )}
+                    </motion.div>
+
+                    {/* Stage label */}
+                    <span
+                      className="text-xs font-medium transition-colors duration-300"
+                      style={{
+                        color: isError
+                          ? "hsl(var(--destructive))"
+                          : isDone
+                            ? "hsl(var(--foreground))"
+                            : isActive
+                              ? "hsl(var(--foreground) / 0.8)"
+                              : "hsl(var(--muted-foreground) / 0.5)",
+                      }}
+                    >
+                      {cfg.label}
+                      {isActive && (
+                        <motion.span
+                          animate={{ opacity: [1, 0, 1] }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                        >
+                          {" "}...
+                        </motion.span>
+                      )}
+                    </span>
                   </div>
-                  <span
-                    className="text-xs transition-colors duration-300"
+
+                  {/* SSE message — shown as subtitle under the stage */}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-[10px] pl-9 leading-relaxed"
                     style={{
-                      color: isDone
-                        ? "hsl(var(--foreground))"
-                        : isActive
-                        ? "hsl(var(--foreground) / 0.8)"
-                        : "hsl(var(--muted-foreground) / 0.5)",
+                      color: isError
+                        ? "hsl(var(--destructive) / 0.8)"
+                        : "hsl(var(--muted-foreground) / 0.6)",
                     }}
                   >
-                    {step.label}
-                    {isActive && (
-                      <motion.span
-                        animate={{ opacity: [1, 0, 1] }}
-                        transition={{ duration: 1, repeat: Infinity }}
-                      >
-                        {" "}...
-                      </motion.span>
-                    )}
-                  </span>
+                    {entry.message}
+                  </motion.p>
                 </motion.div>
               );
             })}
           </AnimatePresence>
         </div>
+
+        {/* Error retry hint */}
+        {error && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-xs text-center"
+            style={{ color: "hsl(var(--destructive) / 0.8)" }}
+          >
+            {error}
+          </motion.p>
+        )}
       </div>
     </motion.div>
   );

@@ -20,8 +20,14 @@ export const GET = async (req: NextRequest) => {
         const teams = await prisma.team.findMany({
             where: { hackathonId },
             include: {
-                participant: true, // we can include other fields according to our needs
-                hackathon: true
+                // we can include other fields according to our needs
+                hackathon: true,
+                teamResult: true,
+                participant: {
+                    include: {
+                        memberScore: true
+                    }
+                }
             }
         })
 

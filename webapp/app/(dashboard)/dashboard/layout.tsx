@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import CreateHack from "@/components/dashboard/CreateHackModal";
 import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
@@ -11,16 +12,16 @@ interface Hackathon {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [open, setOpen] = useState(false);
 
-  // Fetch existing hackathons on mount
   useEffect(() => {
     const fetchHackathons = async () => {
       try {
         const res = await fetch("/api/hackathon");
         const json = await res.json();
-        if (json.success) setHackathons(json.data);
+        if (json.success) setHackathons(json.data.map((h: any) => ({ id: h.id, name: h.name })));
       } catch (err) {
         console.error(err);
       }
@@ -30,6 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const createHackathon = async (name: string, file: File | null) => {
     try {
+      // 1. Create hackathon
       const res = await fetch("/api/hackathon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const hackathonId: string = json.hackathonId;
 
+      // 2. Upload CSV
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
@@ -47,7 +50,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         await fetch("/api/upload", { method: "POST", body: formData });
       }
 
+      // 3. Update sidebar
       setHackathons((prev) => [...prev, { id: hackathonId, name }]);
+
+      // 4. Redirect — autorun=true triggers pipeline on arrival
+      router.push(`/dashboard/${hackathonId}?autorun=true`);
     } catch (err) {
       console.error(err);
     }
