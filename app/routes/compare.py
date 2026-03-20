@@ -28,7 +28,7 @@ class DimensionComparison(BaseModel):
     dimension: str
     team_a:    str
     team_b:    str
-    edge:      Literal["team_a", "team_b", "tie"]
+    edge:      str
 
 
 class CompareResponse(BaseModel):
@@ -84,12 +84,12 @@ async def compare_teams(
     if not row_a:
         raise HTTPException(
             status_code=404,
-            detail=f"No summary found for team {team}. Run the pipeline first."
+            detail=f"No summary found for team {team}. Maybe team does not exist."
         )
     if not row_b:
         raise HTTPException(
             status_code=404,
-            detail=f"No summary found for team {compare}. Run the pipeline first."
+            detail=f"No summary found for team {compare}. Maybe team does not exist."
         )
 
     # Parse stored JSON summaries

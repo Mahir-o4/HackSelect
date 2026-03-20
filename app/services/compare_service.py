@@ -17,7 +17,9 @@ class DimensionComparisonOutput(BaseModel):
     dimension: str
     team_a:    str
     team_b:    str
-    edge:      Literal["team_a", "team_b", "tie"]
+    edge:      str = Field(
+        description="Which team has the advantage — use the actual team name or 'tie'"
+    )
 
 
 class CompareOutput(BaseModel):
@@ -68,8 +70,8 @@ Your job is to compare them across these dimensions:
 - Team Weaknesses
 - Motivation & Qualities
 
-For each dimension, analyse both teams fairly and indicate which has the edge.
-Then provide an overall summary and a recommendation.
+For each dimension, analyse both teams fairly.
+For the edge field — use the ACTUAL TEAM NAME of the winning team, or "tie" if equal.
 
 Rules:
 - Be analytical, fair, and concise
@@ -105,21 +107,28 @@ Rules:
         def format_team(name: str, summary: dict) -> str:
             lines = [f"TEAM: {name}"]
             lines.append(f"Overall: {summary.get('team_summary', 'N/A')}")
-            lines.append(f"Strengths: {', '.join(summary.get('strengths', []))}")
-            lines.append(f"Weaknesses: {', '.join(summary.get('weaknesses', []))}")
+            lines.append(
+                f"Strengths: {', '.join(summary.get('strengths', []))}")
+            lines.append(
+                f"Weaknesses: {', '.join(summary.get('weaknesses', []))}")
             lines.append(f"Verdict: {summary.get('selection_verdict', 'N/A')}")
             lines.append("")
 
             for m in summary.get("members", []):
                 lines.append(f"  Member: {m.get('name', 'Unknown')}")
                 lines.append(f"    Summary:    {m.get('summary', 'N/A')}")
-                lines.append(f"    Skills:     {', '.join(m.get('skills', []))}")
-                lines.append(f"    Projects:   {', '.join(m.get('projects', []))}")
+                lines.append(
+                    f"    Skills:     {', '.join(m.get('skills', []))}")
+                lines.append(
+                    f"    Projects:   {', '.join(m.get('projects', []))}")
                 lines.append(f"    Education:  {m.get('education', 'N/A')}")
                 lines.append(f"    Experience: {m.get('experience', 'N/A')}")
-                lines.append(f"    Qualities:  {', '.join(m.get('qualities', []))}")
-                lines.append(f"    GitHub:     {', '.join(m.get('github_highlights', []))}")
-                lines.append(f"    Hackathon ready: {m.get('hackathon_ready', False)}")
+                lines.append(
+                    f"    Qualities:  {', '.join(m.get('qualities', []))}")
+                lines.append(
+                    f"    GitHub:     {', '.join(m.get('github_highlights', []))}")
+                lines.append(
+                    f"    Hackathon ready: {m.get('hackathon_ready', False)}")
                 lines.append("")
 
             return "\n".join(lines)
@@ -156,7 +165,7 @@ Rules:
             model_name = self.available_models[self.current_model_index]
 
             try:
-                llm   = self._get_llm(model_name)
+                llm = self._get_llm(model_name)
                 chain = self.prompt | llm | self.parser
 
                 print(f"[CompareService] Using model: {model_name}")
@@ -176,7 +185,8 @@ Rules:
                 return result
 
             except exceptions.ResourceExhausted:
-                print(f"[CompareService] Model {model_name} quota exhausted. Switching...")
+                print(
+                    f"[CompareService] Model {model_name} quota exhausted. Switching...")
                 self.current_model_index = (
                     self.current_model_index + 1) % len(self.available_models)
                 print(f"[CompareService] → Now using model index {self.current_model_index}: "
@@ -188,13 +198,15 @@ Rules:
                 continue
 
             except asyncio.TimeoutError:
-                print(f"[CompareService] Timeout with {model_name}. Switching model...")
+                print(
+                    f"[CompareService] Timeout with {model_name}. Switching model...")
                 self.current_model_index = (
                     self.current_model_index + 1) % len(self.available_models)
                 continue
 
             except Exception as e:
-                print(f"[CompareService] Unexpected error with {model_name} Switching model...")
+                print(
+                    f"[CompareService] Unexpected error with {model_name} Switching model...")
                 self.current_model_index = (
                     self.current_model_index + 1) % len(self.available_models)
                 continue
