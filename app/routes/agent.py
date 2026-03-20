@@ -117,7 +117,7 @@ async def chat(body: ChatRequest):
 
         while not ha.models_exhausted:
 
-            agent = ha.build()   # ← build agent with current model
+            agent = ha.build()
 
             try:
                 async for event in agent.astream_events(
