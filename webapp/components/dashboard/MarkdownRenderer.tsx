@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const components: Components = {
     p: ({ children }) => (
@@ -69,6 +70,59 @@ const components: Components = {
             style={{ height: "1px", background: "hsl(var(--border) / 0.4)" }}
         />
     ),
+    table: ({ children }) => (
+        <div className="overflow-x-auto my-2">
+            <table
+                className="w-full text-[10px] border-collapse"
+                style={{ borderRadius: "8px", overflow: "hidden" }}
+            >
+                {children}
+            </table>
+        </div>
+    ),
+    thead: ({ children }) => (
+        <thead
+            style={{
+                background: "hsl(var(--muted) / 0.6)",
+                borderBottom: "1px solid hsl(var(--border) / 0.5)",
+            }}
+        >
+            {children}
+        </thead>
+    ),
+    tbody: ({ children }) => (
+        <tbody>{children}</tbody>
+    ),
+    tr: ({ children }) => (
+        <tr
+            className="transition-colors"
+            style={{ borderBottom: "1px solid hsl(var(--border) / 0.2)" }}
+            onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.3)";
+            }}
+            onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+            }}
+        >
+            {children}
+        </tr>
+    ),
+    th: ({ children }) => (
+        <th
+            className="px-3 py-1.5 text-left font-semibold text-[10px] uppercase tracking-wide"
+            style={{ color: "hsl(var(--muted-foreground))" }}
+        >
+            {children}
+        </th>
+    ),
+    td: ({ children }) => (
+        <td
+            className="px-3 py-1.5 text-[10px]"
+            style={{ color: "hsl(var(--foreground))" }}
+        >
+            {children}
+        </td>
+    ),
 }
 
 interface MarkdownRendererProps {
@@ -77,7 +131,7 @@ interface MarkdownRendererProps {
 
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
     return (
-        <ReactMarkdown components={components}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
             {content}
         </ReactMarkdown>
     );
