@@ -7,10 +7,11 @@ import { SlidersHorizontal } from "lucide-react";
 
 import HackathonHeader from "@/components/dashboard/HackathonHeader";
 import TeamsTable, { Team, TabType } from "@/components/dashboard/TeamsTable";
-import DetailsDrawer from "@/components/dashboard/DetailsDrawer";
+import SummaryDrawer from "@/components/dashboard/SummaryDrawer";
 import ComparePanel from "@/components/dashboard/ComparePanel";
 import AnalysisLoader from "@/components/dashboard/AnalysisLoader";
 import { FilterModal, FieldsData } from "@/components/dashboard/FilterModal";
+import ChatBot from "@/components/dashboard/ChatBot";
 import { toast } from "sonner";
 
 type AppState = "loading_teams" | "idle" | "filter" | "analysing" | "results" | "recluster" | "reselect";
@@ -313,13 +314,15 @@ export default function HackathonDashboardPage() {
         </div>
       )}
 
-      <DetailsDrawer team={detailsTeam} onClose={() => setDetailsTeam(null)} />
+      <SummaryDrawer team={detailsTeam} onClose={() => setDetailsTeam(null)} />
 
       <AnimatePresence>
         {compareMode && (
           <ComparePanel teams={checkedTeams} onClose={handleExitCompare} />
         )}
       </AnimatePresence>
+
+      {appState === "results" && <ChatBot hackathonId={hackathonId} />}
     </div>
   );
 }

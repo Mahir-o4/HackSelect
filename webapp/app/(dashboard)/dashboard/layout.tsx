@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import CreateHack from "@/components/dashboard/CreateHackModal";
-import DashboardNavbar from "@/components/dashboard/DashboardNavbar";
 
 interface Hackathon {
   id: string;
@@ -15,6 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
   const [open, setOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     const fetchHackathons = async () => {
@@ -61,12 +61,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="flex h-screen">
-      <Sidebar hackathons={hackathons} onCreateHackathon={() => setOpen(true)} />
+    <div className="flex h-screen relative">
+      <Sidebar
+        hackathons={hackathons}
+        onCreateHackathon={() => setOpen(true)}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+      />
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        <DashboardNavbar />
-        <main className="flex-1 overflow-hidden flex flex-col pt-24">{children}</main>
+        <div className="px-5 pt-5 pb-3 shrink-0 flex items-center gap-1.5">
+          <span className="text-base font-bold text-foreground">Hack</span>
+          <span className="text-base font-bold" style={{ color: "hsl(var(--accent))" }}>Select</span>
+        </div>
+        <main className="flex-1 overflow-hidden flex flex-col">
+          {children}
+        </main>
       </div>
 
       <CreateHack

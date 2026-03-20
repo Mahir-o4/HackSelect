@@ -14,15 +14,16 @@ interface Hackathon {
 interface SidebarProps {
   hackathons: Hackathon[];
   onCreateHackathon?: () => void;
+  collapsed: boolean;
+  onCollapsedChange: (v: boolean) => void;
 }
 
-const Sidebar = ({ hackathons, onCreateHackathon }: SidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+const Sidebar = ({ hackathons, onCreateHackathon, collapsed, onCollapsedChange }: SidebarProps) => {
 
   return (
     <motion.aside
       animate={{ width: collapsed ? 68 : 240 }}
-      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
       className="relative flex flex-col h-screen shrink-0 overflow-visible bg-background"
       style={{ borderRight: "1px solid hsl(var(--border))" }}
     >
@@ -34,7 +35,7 @@ const Sidebar = ({ hackathons, onCreateHackathon }: SidebarProps) => {
 
       {/* Floating expand/collapse tab — sits on the right edge */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => onCollapsedChange(!collapsed)}
         className="absolute -right-3 top-15 z-50 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-200 group"
         style={{
           background: "hsl(var(--card))",
@@ -235,8 +236,51 @@ const Sidebar = ({ hackathons, onCreateHackathon }: SidebarProps) => {
         </button>
       </nav>
 
-      
-      
+      {/* ── Logout — pinned to bottom ── */}
+      <div
+        className="shrink-0 px-2 py-3"
+        style={{ borderTop: "1px solid hsl(var(--border) / 0.5)" }}
+      >
+        <button
+          className={cn(
+            "w-full flex items-center rounded-lg transition-all duration-150",
+            collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-2 gap-2.5"
+          )}
+          style={{
+            color: "hsl(var(--muted-foreground))",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+          }}
+          onMouseEnter={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.background = "hsl(var(--destructive) / 0.08)";
+            btn.style.color = "hsl(var(--destructive))";
+          }}
+          onMouseLeave={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.background = "transparent";
+            btn.style.color = "hsl(var(--muted-foreground))";
+          }}
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+                className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                style={{ letterSpacing: "-0.005em", display: "block" }}
+              >
+                Logout
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
+
     </motion.aside>
   );
 };

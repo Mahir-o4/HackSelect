@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, ChevronsUpDown,
   ExternalLink, Plus, Minus, UserPlus,
-  GitCompare, Pencil, SlidersHorizontal, Save, Search,
+  GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText
 } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -322,8 +322,8 @@ export default function TeamsTable({
                 b.style.background = "";
               }}
             >
-              <ExternalLink className="w-3 h-3" />
-              Details
+              <FileText className="w-3 h-3" />
+              Summary
             </button>
 
             {removeMode && (
