@@ -367,6 +367,39 @@ export default function TeamsTable({
     return cols;
   }, [compareMode, checkedTeamIds, expandedRows, removeMode, addMode, isAtLimit]);
 
+  function ActionBtn({
+    icon, label, onClick, active, accent, disabled,
+  }: {
+    icon: React.ReactNode; label: string; onClick: () => void;
+    active?: boolean; accent?: boolean; disabled?: boolean;
+  }) {
+    return (
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{
+          background: accent ? "hsl(var(--accent))" : active ? "hsl(var(--accent) / 0.12)" : "transparent",
+          color: accent ? "hsl(var(--accent-foreground))" : active ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))",
+          borderColor: accent ? "transparent" : active ? "hsl(var(--accent) / 0.4)" : "hsl(var(--border) / 0.6)",
+          boxShadow: accent ? "0 0 12px hsl(var(--accent) / 0.3)" : "none",
+        }}
+        onMouseEnter={(e) => {
+          if (disabled || accent) return;
+          (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+          (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
+        }}
+        onMouseLeave={(e) => {
+          if (disabled || accent) return;
+          (e.currentTarget as HTMLElement).style.color = active ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))";
+          (e.currentTarget as HTMLElement).style.borderColor = active ? "hsl(var(--accent) / 0.4)" : "hsl(var(--border) / 0.6)";
+        }}
+      >
+        {icon}{label}
+      </button>
+    );
+  }
+
   const table = useReactTable({
     data: filteredTeams,
     columns,
