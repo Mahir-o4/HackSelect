@@ -28,7 +28,7 @@ class DimensionComparison(BaseModel):
     dimension: str
     team_a:    str
     team_b:    str
-    edge:      Literal["team_a", "team_b", "tie"]
+    edge:      str
 
 
 class CompareResponse(BaseModel):
