@@ -164,7 +164,7 @@ async def run_ppt_pipeline(hackathon_id: HackathonId):
 
 
 # ----------------------------------------------------------------
-# Classification Routes  (teammate's, unchanged)
+# Classification Routes  
 # ----------------------------------------------------------------
 
 @router.post("/process/{hackathon_id}", response_model=list[PPTProcessResponse])
