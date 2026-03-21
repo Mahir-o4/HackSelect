@@ -83,11 +83,7 @@ model Hackathon {
   name      String?
   createdAt DateTime @default(now())
 
-<<<<<<< HEAD
-  saved Boolean @default(false)
-=======
   saved     Boolean  @default(false)
->>>>>>> 36cc4f5 (updated in current prisma schema)
 
   teams          Team[]
   judges         Judge[]
@@ -278,11 +274,7 @@ model PptSubmission {
 
   fileUrl      String
   categories   String[]
-<<<<<<< HEAD
-  score        Float?
-=======
-  rawText      String?
->>>>>>> 36cc4f5 (updated in current prisma schema)
+  score      Float?
   classifiedAt DateTime?
 
   teamId String @unique
@@ -309,8 +301,4 @@ model PptAssignment {
   hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
 
   @@map("pptAssignment")
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 36cc4f5 (updated in current prisma schema)
