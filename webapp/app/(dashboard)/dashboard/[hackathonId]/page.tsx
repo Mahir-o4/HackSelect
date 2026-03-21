@@ -32,6 +32,8 @@ export default function HackathonDashboardPage() {
   const [detailsTeam, setDetailsTeam] = useState<Team | null>(null);
   const [spotsLimit, setSpotsLimit] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isFinalSaving, setIsFinalSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,6 +45,13 @@ export default function HackathonDashboardPage() {
           setAllTeams(teamsJson.data);
           const name = teamsJson.data?.[0]?.hackathon?.name;
           if (name) setHackathonName(name);
+        }
+
+        // After fetching teams, check hackathon saved status
+        const hackRes = await fetch(`/api/hackathon/${hackathonId}`);
+        const hackJson = await hackRes.json();
+        if (hackJson.success && hackJson.data.saved) {
+          setIsSaved(true);
         }
 
         // 2. Check if selection already exists
@@ -70,6 +79,27 @@ export default function HackathonDashboardPage() {
     };
     if (hackathonId) fetchData();
   }, [hackathonId]);
+
+  const handleFinalSave = async () => {
+    setIsFinalSaving(true);
+    try {
+      const res = await fetch(`/api/hackathon/${hackathonId}/save`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json?.error ?? "Failed to finalise.");
+        return;
+      }
+      toast.success("Selection finalised — no further changes allowed.");
+      setIsSaved(true);
+      setEditMode(false);
+    } catch {
+      toast.error("Could not reach the server.");
+    } finally {
+      setIsFinalSaving(false);
+    }
+  };
 
   const selectedTeams = allTeams.filter((t) => selectedTeamIds.has(t.teamId));
   const unselectedTeams = allTeams.filter((t) => !selectedTeamIds.has(t.teamId));
@@ -221,6 +251,9 @@ export default function HackathonDashboardPage() {
           unselectedCount={unselectedTeams.length}
           onDetails={setDetailsTeam}
           editMode={editMode}
+          onFinalSave={handleFinalSave}
+          isFinalSaving={isFinalSaving}
+          isSaved={isSaved}
           onEdit={() => {
             setEditMode(true)
             setIsSaving(false)

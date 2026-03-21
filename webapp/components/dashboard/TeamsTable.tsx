@@ -81,6 +81,7 @@ interface TeamsTableProps {
   onFinalSave: () => void;
   isFinalSaving?: boolean;
   onModify: (type: "recluster" | "reselect") => void; // ← correct type
+  isSaved?: boolean;
 }
 
 function SortHeader({ column, label }: { column: Column<Team, unknown>; label: string }) {
@@ -121,6 +122,7 @@ export default function TeamsTable({
   isSaving = false,
   onFinalSave,
   isFinalSaving = false,
+  isSaved = false
 }: TeamsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -468,7 +470,22 @@ export default function TeamsTable({
         {/* Action buttons */}
         {hasAnalysisRun && (
           <div className="flex items-center gap-1.5 shrink-0">
-            {!editMode ? (
+            {isSaved ? (
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  background: "hsl(var(--accent) / 0.08)",
+                  border: "1px solid hsl(var(--accent) / 0.25)",
+                  color: "hsl(var(--accent))",
+                }}
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Finalised
+              </span>
+            ) : !editMode ? (
               <>
                 {/* ── Modify dropdown ── */}
                 <div ref={modifyRef} className="relative">
@@ -557,167 +574,161 @@ export default function TeamsTable({
               </>
             ) : (
               <>
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-                  style={{
-                    background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
-                    color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
-                    border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
-                  }}
-                >
-                  {selectedCount}/{totalSpotsLimit} teams
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                    style={{
+                      background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
+                      color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
+                      border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
+                    }}
+                  >
+                    {selectedCount}/{totalSpotsLimit} teams
+                  </span>
 
-                <ActionBtn
-                  icon={
-                    isSaving ? (
+                  <ActionBtn
+                    icon={
+                      isSaving ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        />
+                      ) : (
+                        <Save className="w-3 h-3" />
+                      )
+                    }
+                    label={isSaving ? "Saving..." : "Save Draft"}
+                    onClick={onSave}
+                    disabled={isSaving || isFinalSaving}
+                  />
+
+                  <ActionBtn
+                    icon={
+                      isFinalSaving ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        />
+                      ) : (
+                        <Save className="w-3 h-3" />
+                      )
+                    }
+                    label={isFinalSaving ? "Saving..." : "Save"}
+                    onClick={() => setShowFinalSaveDialog(true)}
+                    accent
+                    disabled={isSaving || isFinalSaving}
+                  />
+                </div>
+
+                {/* ── Final Save Confirmation Dialog ── */}
+                <AnimatePresence>
+                  {showFinalSaveDialog && (
+                    <>
                       <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="fixed inset-0 z-40"
+                        style={{ background: "hsl(0 0% 0% / 0.5)" }}
+                        onClick={() => setShowFinalSaveDialog(false)}
                       />
-                    ) : (
-                      <Save className="w-3 h-3" />
-                    )
-                  }
-                  label={isSaving ? "Saving..." : "Save Draft"}
-                  onClick={onSave}
-                  disabled={isSaving || isFinalSaving}
-                />
-
-                <ActionBtn
-                  icon={
-                    isFinalSaving ? (
                       <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-3 h-3 rounded-full border border-current border-t-transparent"
-                      />
-                    ) : (
-                      <Save className="w-3 h-3" />
-                    )
-                  }
-                  label={isFinalSaving ? "Saving..." : "Save"}
-                  onClick={() => setShowFinalSaveDialog(true)}
-                  accent
-                  disabled={isSaving || isFinalSaving}
-                />
-              </div>
-
-              {/* ── Final Save Confirmation Dialog ── */}
-              <AnimatePresence>
-                {showFinalSaveDialog && (
-                  <>
-                    {/* Backdrop */}
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="fixed inset-0 z-40"
-                      style={{ background: "hsl(0 0% 0% / 0.5)" }}
-                      onClick={() => setShowFinalSaveDialog(false)}
-                    />
-
-                    {/* Dialog */}
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                      transition={{ duration: 0.18 }}
-                      className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-                    >
-                      <div
-                        className="pointer-events-auto w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
-                        style={{
-                          background: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border) / 0.6)",
-                          boxShadow: "0 24px 64px hsl(0 0% 0% / 0.5)",
-                        }}
+                        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                        transition={{ duration: 0.18 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
                       >
-                        {/* Icon */}
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                          className="pointer-events-auto w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
                           style={{
-                            background: "hsl(var(--destructive) / 0.1)",
-                            border: "1px solid hsl(var(--destructive) / 0.3)",
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border) / 0.6)",
+                            boxShadow: "0 24px 64px hsl(0 0% 0% / 0.5)",
                           }}
                         >
-                          <svg
-                            className="w-5 h-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="hsl(var(--destructive))"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                            <line x1="12" y1="9" x2="12" y2="13" />
-                            <line x1="12" y1="17" x2="12.01" y2="17" />
-                          </svg>
-                        </div>
-
-                        {/* Text */}
-                        <div className="flex flex-col gap-1">
-                          <h3 className="text-base font-semibold text-foreground">
-                            Finalise team selection?
-                          </h3>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            You <span className="font-medium text-foreground">cannot change</span> the
-                            selected teams after this. This action is final and cannot be undone.
-                          </p>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={() => setShowFinalSaveDialog(false)}
-                            className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                             style={{
-                              background: "transparent",
-                              border: "1px solid hsl(var(--border) / 0.6)",
-                              color: "hsl(var(--muted-foreground))",
-                            }}
-                            onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
-                              (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
-                              (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
+                              background: "hsl(var(--destructive) / 0.1)",
+                              border: "1px solid hsl(var(--destructive) / 0.3)",
                             }}
                           >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => {
-                              setShowFinalSaveDialog(false);
-                              onFinalSave();
-                            }}
-                            className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                            style={{
-                              background: "hsl(var(--destructive))",
-                              color: "hsl(var(--destructive-foreground))",
-                              border: "1px solid transparent",
-                              boxShadow: "0 0 16px hsl(var(--destructive) / 0.3)",
-                            }}
-                            onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLElement).style.opacity = "0.9";
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLElement).style.opacity = "1";
-                            }}
-                          >
-                            Confirm & Save
-                          </button>
+                            <svg
+                              className="w-5 h-5"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="hsl(var(--destructive))"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <h3 className="text-base font-semibold text-foreground">
+                              Finalise team selection?
+                            </h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              You <span className="font-medium text-foreground">cannot change</span> the
+                              selected teams after this. This action is final and cannot be undone.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={() => setShowFinalSaveDialog(false)}
+                              className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                              style={{
+                                background: "transparent",
+                                border: "1px solid hsl(var(--border) / 0.6)",
+                                color: "hsl(var(--muted-foreground))",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
+                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
+                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowFinalSaveDialog(false);
+                                onFinalSave();
+                              }}
+                              className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                              style={{
+                                background: "hsl(var(--destructive))",
+                                color: "hsl(var(--destructive-foreground))",
+                                border: "1px solid transparent",
+                                boxShadow: "0 0 16px hsl(var(--destructive) / 0.3)",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.opacity = "0.9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.opacity = "1";
+                              }}
+                            >
+                              Confirm & Save
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </>
             )}
           </div>
