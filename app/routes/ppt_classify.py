@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Annotated
@@ -108,23 +109,35 @@ async def run_ppt_pipeline(hackathon_id: HackathonId):
 
     classified = 0
 
-    if rows:
+    # Filter to only unclassified rows with a fileUrl
+    to_classify = [
+        r for r in rows
+        if r.classifiedAt is None and r.fileUrl
+    ]
+
+    for r in rows:
+        if r.classifiedAt is not None:
+            print(f"[PPT Run] Skipping {r.team.teamName or r.teamId} — already classified.")
+
+    if to_classify:
+
+        # Semaphore caps concurrent Gemini calls
+        ppt_sem = asyncio.Semaphore(5)
+
+        async def classify_one(row):
+            async with ppt_sem:
+                print(f"[PPT Run] Classifying {row.team.teamName or row.teamId}...")
+                result = await asyncio.to_thread(ppt_classifier.classify, row.fileUrl)
+                return row, result
+
+        classify_results = await asyncio.gather(*[classify_one(r) for r in to_classify])
+
+        # Persist results sequentially — DB writes dont benefit from concurrency
         db = Prisma()
         await db.connect()
 
         try:
-            for row in rows:
-
-                if row.classifiedAt is not None:
-                    print(f"[PPT Run] Skipping {row.team.teamName or row.teamId} — already classified.")
-                    continue
-
-                if not row.fileUrl:
-                    continue
-
-                print(f"[PPT Run] Classifying {row.team.teamName or row.teamId}...")
-                result = ppt_classifier.classify(row.fileUrl)
-
+            for row, result in classify_results:
                 if not result:
                     print(f"[PPT Run] Classification failed — {row.team.teamName or row.teamId}")
                     continue
