@@ -82,7 +82,7 @@ model Hackathon {
   name      String?
   createdAt DateTime @default(now())
 
-  saved Boolean @default(false)
+  saved     Boolean  @default(false)
 
   teams          Team[]
   judges         Judge[]
