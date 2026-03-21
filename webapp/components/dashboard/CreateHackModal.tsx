@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onCreate: (hackathon: { name: string; participants: string[] }) => void;
+  onCreate: (name: string, file: File | null) => Promise<void>;
 }
 
 export default function CreateHack({ open, onClose, onCreate }: Props) {
@@ -18,15 +18,15 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
   const [participants, setParticipants] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleCSV = (file: File) => {
-    setFileName(file.name);
-
-    Papa.parse(file, {
+  const handleCSV = (f: File) => {
+    setFile(f);
+    setFileName(f.name);
+    Papa.parse(f, {
       complete: (result) => {
-        const names = result.data
-          .map((row: any) => row[0])
-          .filter(Boolean);
+        const names = result.data.map((row: any) => row[0]).filter(Boolean);
         setParticipants(names);
       },
     });
@@ -39,11 +39,15 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
     }
   };
 
-  const handleSubmit = () => {
-    onCreate({ name, participants });
+  const handleSubmit = async () => {
+    if (!name) return;
+    setLoading(true);
+    await onCreate(name, file);
     setName("");
+    setFile(null);
     setParticipants([]);
     setFileName("");
+    setLoading(false);
     onClose();
   };
 
@@ -62,6 +66,7 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           transition={{ duration: 0.2 }}
+
           className="w-105 bg-card border border-border rounded-2xl p-6 space-y-6 shadow-xl"
         >
           {/* Header */}
@@ -154,12 +159,8 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
               Cancel
             </Button>
 
-            <Button
-              variant="hero"
-              disabled={!name}
-              onClick={handleSubmit}
-            >
-              Create Hackathon
+            <Button variant="hero" disabled={!name || loading} onClick={handleSubmit}>
+              {loading ? "Creating..." : "Create Hackathon"}
             </Button>
           </div>
         </motion.div>
