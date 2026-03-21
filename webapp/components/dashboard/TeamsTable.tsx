@@ -17,11 +17,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, ChevronsUpDown,
   Plus, Minus, UserPlus,
-  GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText
+  GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText, Upload
 } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
@@ -81,7 +87,7 @@ interface TeamsTableProps {
   isSaving?: boolean;
   onFinalSave: () => void;
   isFinalSaving?: boolean;
-  onModify: (type: "recluster" | "reselect") => void; // ← correct type
+  onModify: (type: "recluster" | "reselect") => void;
   isSaved?: boolean;
 }
 
@@ -123,7 +129,7 @@ export default function TeamsTable({
   isSaving = false,
   onFinalSave,
   isFinalSaving = false,
-  isSaved = false
+  isSaved = false,
 }: TeamsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -139,7 +145,6 @@ export default function TeamsTable({
   const addMode = editMode && isOnUnselectedTab;
   const isAtLimit = selectedCount >= totalSpotsLimit;
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (modifyRef.current && !modifyRef.current.contains(e.target as Node)) {
@@ -404,6 +409,7 @@ export default function TeamsTable({
   ];
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex-1 overflow-hidden flex flex-col">
 
       {/* ── Toolbar ── */}
@@ -472,20 +478,20 @@ export default function TeamsTable({
         {hasAnalysisRun && (
           <div className="flex items-center gap-1.5 shrink-0">
             {isSaved ? (
-              <span
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
-                style={{
-                  background: "hsl(var(--accent) / 0.08)",
-                  border: "1px solid hsl(var(--accent) / 0.25)",
-                  color: "hsl(var(--accent))",
-                }}
-              >
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                Finalised
-              </span>
+              /* ── Upload PPT button (shown after finalised) ── */
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                  variant="hero" size="sm" className="h-7 text-xs"
+                  >
+                    <Upload className="w-3 h-3" />
+                    Upload PPT
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Upload PPT for selected teams
+                </TooltipContent>
+              </Tooltip>
             ) : !editMode ? (
               <>
                 {/* ── Modify dropdown ── */}
@@ -1013,7 +1019,6 @@ export default function TeamsTable({
                                               </span>
                                             </div>
                                           )}
-                                          {/* FINAL SCORE (ci) — highlight this */}
                                           {p.memberScore?.cI !== undefined && (
                                             <div
                                               className="flex items-center gap-1 px-2 py-0.5 rounded-md"
@@ -1054,14 +1059,13 @@ export default function TeamsTable({
               </TableRow>
             )}
           </TableBody>
-        </Table >
-      </div >
+        </Table>
+      </div>
 
       {/* ── Footer ── */}
-      < div
+      <div
         className="px-4 py-2 shrink-0 flex items-center justify-between"
-        style={{ borderTop: "1px solid hsl(var(--border) / 0.3)" }
-        }
+        style={{ borderTop: "1px solid hsl(var(--border) / 0.3)" }}
       >
         <span className="text-xs text-muted-foreground">
           {filteredTeams.length} of {teams.length} team{teams.length !== 1 ? "s" : ""}
@@ -1086,7 +1090,8 @@ export default function TeamsTable({
             </span>
           )}
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
+    </TooltipProvider>
   );
 }
