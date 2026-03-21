@@ -7,6 +7,7 @@ datasource db {
   provider = "postgresql"
 }
 
+
 model User {
   id        String   @id
   createdAt DateTime @default(now())
@@ -82,7 +83,11 @@ model Hackathon {
   name      String?
   createdAt DateTime @default(now())
 
-  teams Team[]
+  saved     Boolean  @default(false)
+
+  teams          Team[]
+  judges         Judge[]
+  pptAssignments PptAssignment[]
 
   @@map("hackathon")
 }
@@ -95,10 +100,11 @@ model Team {
   hackathonId String?
   hackathon   Hackathon? @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
 
-  participant Participant[]
-  teamFeature TeamFeature?
-  teamResult  TeamResult?
-  teamSummary TeamSummary?
+  participant   Participant[]
+  teamFeature   TeamFeature?
+  teamResult    TeamResult?
+  teamSummary   TeamSummary?
+  pptSubmission PptSubmission?
 
   @@map("team")
 }
@@ -244,4 +250,55 @@ model TeamSummary {
   team Team @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
 
   @@map("teamSummary")
+}
+
+model Judge {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  name            String
+  email           String
+  specialisations String[]
+
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  assignments PptAssignment[]
+
+  @@map("judge")
+}
+
+model PptSubmission {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  fileUrl      String
+  categories   String[]
+  rawText      String?
+  classifiedAt DateTime?
+
+  teamId String @unique
+  team   Team   @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  assignment PptAssignment?
+
+  @@map("pptSubmission")
+}
+
+model PptAssignment {
+  id         String   @id @default(uuid())
+  assignedAt DateTime @default(now())
+
+  isPrimaryMatch Boolean @default(true)
+
+  judgeId String
+  judge   Judge  @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  pptId String        @unique
+  ppt   PptSubmission @relation(fields: [pptId], references: [id], onDelete: Cascade)
+
+  hackathonId String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  @@map("pptAssignment")
 }

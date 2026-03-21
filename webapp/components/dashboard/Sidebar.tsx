@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Plus, LogOut, Zap } from "lucide-react";
+import { ChevronRight, Plus, LogOut, Zap, BarChart2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+
 
 interface Hackathon {
   id: string;
@@ -241,6 +242,43 @@ const Sidebar = ({ hackathons, onCreateHackathon, collapsed, onCollapsedChange }
         className="shrink-0 px-2 py-3"
         style={{ borderTop: "1px solid hsl(var(--border) / 0.5)" }}
       >
+
+        {/* Stats page */}
+        <Link
+          href="/dashboard/stats"
+          className={cn(
+            "w-full flex items-center rounded-lg transition-all duration-150 mb-1",
+            collapsed ? "justify-center px-0 py-2.5" : "px-2.5 py-2 gap-2.5"
+          )}
+          style={{ color: "hsl(var(--muted-foreground))" }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLAnchorElement;
+            el.style.background = "hsl(var(--muted))";
+            el.style.color = "hsl(var(--foreground))";
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLAnchorElement;
+            el.style.background = "transparent";
+            el.style.color = "hsl(var(--muted-foreground))";
+          }}
+        >
+          <BarChart2 className="w-4 h-4 shrink-0" />
+          <AnimatePresence initial={false}>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.15, ease: [0.4, 0, 0.2, 1] }}
+                className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                style={{ letterSpacing: "-0.005em", display: "block" }}
+              >
+                Stats
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Link>
+
         <button
           className={cn(
             "w-full flex items-center rounded-lg transition-all duration-150",
