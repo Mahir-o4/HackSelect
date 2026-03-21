@@ -4,8 +4,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 from typing import Optional
-from google.api_core import exceptions
-import json
+
+
 
 from app.config.settings import GEMINI_API_KEY
 
@@ -128,19 +128,6 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
 
                 return result
 
-            except exceptions.ResourceExhausted:
-                print(
-                    f"[SummaryService] Model {model_name} quota exhausted. Switching...")
-                self.current_model_index = (
-                    self.current_model_index + 1) % len(self.available_models)
-                print(f"[SummaryService] → Now using model index {self.current_model_index}: "
-                      f"{self.available_models[self.current_model_index]}")
-                if self.current_model_index == 0:
-                    print("[SummaryService] TOTAL QUOTA EXHAUSTION. Sleeping 60s...")
-                    await asyncio.sleep(60)
-                await asyncio.sleep(1)
-                continue
-
             except asyncio.TimeoutError:
                 print(
                     f"[SummaryService] Timeout for {team_name} with {model_name}. Switching model...")
@@ -149,14 +136,19 @@ Return ONLY valid JSON matching the schema. No explanation, no markdown, no extr
                 continue
 
             except Exception as e:
-                print(
-                    f"[SummaryService] Unexpected error for {team_name} with {model_name}. Switching model...")
-                self.current_model_index = (
-                    self.current_model_index + 1) % len(self.available_models)
+                error_str = str(e)
+                if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                    print(f"[SummaryService] Model {model_name} quota exhausted. Switching model...")
+                    if self.current_model_index == 0:
+                        print("[SummaryService] TOTAL QUOTA EXHAUSTION. Sleeping 60s...")
+                        await asyncio.sleep(60)
+                    await asyncio.sleep(1)
+                else:
+                    print(f"[SummaryService] Error with {model_name}. Switching model...")
+                self.current_model_index = (self.current_model_index + 1) % len(self.available_models)
                 continue
 
-        print(
-            f"[SummaryService] CRITICAL: All models failed for team {team_name}")
+        print(f"[SummaryService] CRITICAL: All models failed for team {team_name}")
         return None
 
     # ---------------------------

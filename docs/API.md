@@ -750,3 +750,373 @@ The `confidence` field reflects how much data the LLM had to work with:
 **Order matters for labelling** — the team passed as `team` is always `team_a` and the team passed as `compare` is always `team_b` in the response. The `edge` field uses `"team_a"` and `"team_b"` as identifiers — map these back to `team_a_name` and `team_b_name` for display.
 
 **Model fallback** — if the primary Gemini model hits a quota limit or times out, the service automatically switches to the next model in the chain and retries. This is transparent to the client — you will still receive a `200 OK` if any model succeeds.
+
+---
+<br><br>
+
+# Agent API Documentation
+
+## Overview
+
+The Agent API provides a conversational AI interface that lets users query the hackathon database using natural language. Instead of writing SQL or navigating the API manually, users can ask plain English questions like *"Tell me about team AlgoNova"* or *"Who has the highest composite score?"* and receive detailed, human-readable responses.
+
+The agent is scoped to a specific hackathon — it can only access data belonging to the hackathon ID provided in the request. It cannot query data from other hackathons.
+
+---
+
+## How It Works
+
+```
+POST /agent/chat
+  └── Look up or create session in memory
+  └── Append user message to conversation history
+  └── Create LangGraph ReAct agent scoped to hackathon
+  └── Agent thinks → generates SQL → calls execute_sql tool
+  └── execute_sql runs query against NeonDB
+  └── Agent reads results → formulates human-readable response
+  └── Stream response tokens to client via SSE
+  └── Save completed response to session history
+```
+
+### The ReAct Loop
+
+The agent uses a **Reason + Act** loop internally:
+
+```
+User: "Tell me about team AlgoNova"
+  ↓
+Agent thinks: "I need to query the team and participant tables"
+  ↓
+Calls execute_sql("SELECT ... FROM team WHERE teamName ILIKE 'AlgoNova'")
+  ↓
+Gets raw DB rows back
+  ↓
+Agent thinks: "Now I can answer the question"
+  ↓
+Streams: "AlgoNova is a team of 4 members with strong ML expertise..."
+```
+
+For complex questions the agent may call `execute_sql` multiple times before answering — for example joining team data with GitHub profiles and member scores in separate queries.
+
+### Model Fallback Chain
+
+If the primary model hits a quota limit or times out, the agent automatically switches to the next model in the chain and retries the entire request. This is transparent to the client.
+
+### Session History
+
+Every conversation is tracked by a `session_id`. The full message history is passed to the agent on every request, enabling follow-up questions with full context.
+
+---
+
+## Base URL
+
+```
+http://localhost:8000/agent
+```
+
+---
+
+## Endpoints
+
+---
+
+### `POST /agent/chat`
+
+Sends a message to the conversational agent and streams the response via SSE.
+
+#### Request Body
+
+```json
+{
+  "hackathon_id": "hack_abc123",
+  "session_id": null,
+  "message": "Tell me about team AlgoNova"
+}
+```
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `hackathon_id` | `string` | ✅ | Scopes the conversation to this hackathon. Agent will only query data belonging to this hackathon. |
+| `session_id` | `string \| null` | ❌ | Session ID from a previous response. Send `null` or omit to start a new conversation. |
+| `message` | `string` | ✅ | The user's natural language question. Min length 1. |
+
+#### SSE Event Stream
+
+The response is a **Server-Sent Events (SSE)** stream. Each event is a JSON object with a `type` field.
+
+**Event order:**
+```
+1. meta event    — always first, contains session_id
+2. token events  — repeated, one per text chunk
+3. done event    — signals stream is complete
+```
+
+**On error:**
+```
+1. meta event    — always first
+2. error event   — stream ends
+```
+
+---
+
+#### Event: `meta`
+
+Always the first event. Contains the `session_id` — save this and reuse it on follow-up requests.
+
+```
+data: {"type": "meta", "session_id": "550e8400-e29b-41d4-a716-446655440000"}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"meta"` | Event type identifier |
+| `session_id` | `string` | UUID for this conversation session — reuse on follow-ups |
+
+---
+
+#### Event: `token`
+
+Streamed text chunks from the LLM. Concatenate all `data` values in order to reconstruct the full response.
+
+```
+data: {"type": "token", "data": "AlgoNova is a team of"}
+data: {"type": "token", "data": " 4 members with strong"}
+data: {"type": "token", "data": " ML expertise..."}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"token"` | Event type identifier |
+| `data` | `string` | Text fragment — part of the full response |
+
+---
+
+#### Event: `done`
+
+Signals that the stream is complete. No more token events will follow.
+
+```
+data: {"type": "done", "data": ""}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"done"` | Event type identifier |
+| `data` | `""` | Always empty string |
+
+---
+
+#### Event: `error`
+
+Sent if something goes wrong. Stream ends after this event.
+
+```
+data: {"type": "error", "data": "All models exhausted. Try again later."}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | `"error"` | Event type identifier |
+| `data` | `string` | Error message describing what went wrong |
+
+---
+
+#### Example — First message
+
+```bash
+curl -X POST http://127.0.0.1:8000/agent/chat \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"hackathon_id": "hack_abc123", "message": "Tell me about team AlgoNova"}' \
+  --no-buffer
+```
+
+Response:
+```
+data: {"type": "meta", "session_id": "550e8400-e29b-41d4-a716-446655440000"}
+
+data: {"type": "token", "data": "AlgoNova is a team of 4 members"}
+data: {"type": "token", "data": " participating in this hackathon..."}
+
+data: {"type": "done", "data": ""}
+```
+
+---
+
+#### Example — Follow-up message
+
+```bash
+curl -X POST http://127.0.0.1:8000/agent/chat \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"hackathon_id": "hack_abc123", "session_id": "550e8400-e29b-41d4-a716-446655440000", "message": "Who has the highest composite score?"}' \
+  --no-buffer
+```
+
+The agent remembers context from the previous turn — it knows you were asking about AlgoNova and will scope its answer accordingly.
+
+---
+
+#### Error Responses (HTTP)
+
+| Status | Condition | Detail |
+|---|---|---|
+| `400` | `session_id` provided belongs to a different `hackathon_id` | `"Session X belongs to hackathon Y, not Z."` |
+| `422` | Missing required fields or validation failure | FastAPI validation error |
+
+---
+
+### `DELETE /agent/chat/{session_id}`
+
+Clears the conversation history for a session. Use this when the user wants to start a completely fresh conversation.
+
+#### Path Parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `session_id` | `string` | ✅ | The session ID to clear |
+
+#### Example
+
+```bash
+curl -X DELETE http://127.0.0.1:8000/agent/chat/550e8400-e29b-41d4-a716-446655440000
+```
+
+#### Response — `200 OK`
+
+```json
+{
+  "status": "ok",
+  "message": "Session 550e8400-e29b-41d4-a716-446655440000 cleared."
+}
+```
+
+If the session does not exist:
+
+```json
+{
+  "status": "ok",
+  "message": "Session not found — nothing to clear."
+}
+```
+
+---
+
+### `GET /agent/sessions`
+
+Returns all active session IDs and their message counts. Useful for debugging.
+
+#### Example
+
+```bash
+curl http://127.0.0.1:8000/agent/sessions
+```
+
+#### Response — `200 OK`
+
+```json
+{
+  "sessions": {
+    "550e8400-e29b-41d4-a716-446655440000": {
+      "hackathon_id": "hack_abc123",
+      "message_count": 6
+    },
+    "b3f8c1d2-1234-5678-abcd-ef0123456789": {
+      "hackathon_id": "hack_xyz789",
+      "message_count": 2
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `hackathon_id` | `string` | Hackathon this session is scoped to |
+| `message_count` | `integer` | Total messages in history (user + assistant combined) |
+
+---
+
+## Conversation Flow
+
+### Starting a conversation
+
+```
+1. Send POST /agent/chat with hackathon_id and message, no session_id
+2. Read the meta event → save the session_id
+3. Read token events → render streaming response to user
+4. Wait for done event → conversation turn complete
+```
+
+### Continuing a conversation
+
+```
+1. Send POST /agent/chat with same hackathon_id, session_id, and new message
+2. Agent has full history → understands follow-up context
+3. Read token events → render streaming response
+4. Wait for done event
+```
+
+### Ending a conversation
+
+```
+1. Send DELETE /agent/chat/{session_id}
+2. Session history cleared from memory
+3. Next message with null session_id starts a fresh conversation
+```
+
+---
+
+## What You Can Ask
+
+The agent has read access to these tables scoped to your hackathon:
+
+| Table | What you can ask |
+|---|---|
+| `team` | Team names, list of all teams, team details |
+| `participant` | Member names, GitHub usernames, emails, LinkedIn |
+| `githubProfile` | Total repos, stars, forks, activity scores |
+| `githubRepo` | Individual repos, languages, stars |
+| `resume` | Resume scores, raw text analysis |
+| `memberScore` | gI (GitHub score), rI (Resume score), cI (Composite score) |
+| `teamFeature` | ML feature vectors computed per team |
+| `teamSummary` | AI-generated team and member summaries |
+
+### Example questions
+
+```
+"List all teams in this hackathon"
+"Tell me about team AlgoNova"
+"Who has the highest composite score?"
+"Which team has the most GitHub stars?"
+"Show me all participants who are hackathon ready"
+"Compare the GitHub activity of AlgoNova and NodeNexus"
+"Which teams have not been summarised yet?"
+"Who are the members of team DataStream?"
+"What programming languages does team BioCode use?"
+```
+
+---
+
+## Score Reference
+
+When the agent mentions scores, they mean:
+
+| Score | Full name | Range | What it measures |
+|---|---|---|---|
+| `gI` | GitHub Score | 0–1 | Activity, repos, languages, contributions |
+| `rI` | Resume Score | 0–1 | Skills, projects, experience, education |
+| `cI` | Composite Score | 0–1 | Weighted combination of gI and rI |
+
+---
+
+## Notes
+
+**Session persistence** — sessions are stored in server memory. They are lost on server restart. If a session is lost, start a new conversation by omitting `session_id`.
+
+**Hackathon scoping** — the agent is strictly scoped to the provided `hackathon_id`. Every SQL query it generates automatically filters by this hackathon. It cannot access data from other hackathons even if asked.
+
+**Session and hackathon mismatch** — if you send a `session_id` that was created for a different `hackathon_id`, the server returns a `400` error. Each session is permanently tied to the hackathon it was created for.
+
+**Streaming** — the `--no-buffer` flag is required when testing with curl. Without it, curl buffers the response and you won't see tokens as they stream in.
+
+**Read-only** — the agent can only execute `SELECT` queries. Any attempt to modify data (INSERT, UPDATE, DELETE) is blocked at the tool level before reaching the database.

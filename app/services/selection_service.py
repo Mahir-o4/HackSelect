@@ -77,14 +77,28 @@ async def run_autoselect(
         buckets[level].sort(key=lambda t: t["teamScore"], reverse=True)
 
     # ----------------------------------------------------------------
-    # Compute initial quotas
+    # Compute initial quotas using largest remainder method
+    # Ensures quotas always sum exactly to max_teams
     # ----------------------------------------------------------------
 
-    quotas = {
-        "Beginner":     int(max_teams * beginner_pct),
-        "Intermediate": int(max_teams * intermediate_pct),
-        "Advanced":     int(max_teams * advanced_pct),
+    level_pcts = {
+        "Beginner":     beginner_pct,
+        "Intermediate": intermediate_pct,
+        "Advanced":     advanced_pct,
     }
+
+    # Step 1 — floor each quota
+    quotas    = {level: int(max_teams * pct) for level, pct in level_pcts.items()}
+    remainder = max_teams - sum(quotas.values())
+
+    # Step 2 — distribute leftover slots to levels with largest fractional parts
+    fractions = sorted(
+        level_pcts.keys(),
+        key=lambda level: (max_teams * level_pcts[level]) % 1,
+        reverse=True
+    )
+    for i in range(remainder):
+        quotas[fractions[i]] += 1
 
     # ----------------------------------------------------------------
     # Fill shortfalls from adjacent levels
