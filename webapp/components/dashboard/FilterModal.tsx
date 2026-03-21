@@ -101,8 +101,8 @@ function QuotaSlider({ thumbA, thumbB, onChangeA, onChangeB }: {
     const move = (ev: MouseEvent | TouchEvent) => {
       const x = "touches" in ev ? ev.touches[0].clientX : ev.clientX;
       const pct = pctFromEvent(x);
-      if (thumb === "A") onChangeA(snap(pct, 10, thumbB - 10));
-      else onChangeB(snap(pct, thumbA + 10, 90));
+      if (thumb === "A") onChangeA(snap(pct, 0, thumbB - 10));
+      else onChangeB(snap(pct, thumbA + 10, 100));
     };
     const up = () => {
       window.removeEventListener("mousemove", move);
@@ -191,10 +191,14 @@ export const FilterModal = ({ hackathonId, mode = "full", onNext, onBack }: Prop
   const intermediatePct = thumbB - thumbA;
   const expertPct = 100 - thumbB;
 
+  const beginnerCount = Math.floor((beginnerPct / 100) * totalTeams);
+  const intermediateCount = Math.floor((intermediatePct / 100) * totalTeams);
+  const expertCount = totalTeams - beginnerCount - intermediateCount; // remainder goes to expert
+
   const quotas = {
-    beginner: Math.round((beginnerPct / 100) * totalTeams),
-    intermediate: Math.round((intermediatePct / 100) * totalTeams),
-    expert: Math.round((expertPct / 100) * totalTeams),
+    beginner: beginnerCount,
+    intermediate: intermediateCount,
+    expert: expertCount,
   };
 
   console.log(quotas)
@@ -253,9 +257,9 @@ export const FilterModal = ({ hackathonId, mode = "full", onNext, onBack }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           max_teams: totalTeams,
-          beginner_pct: beginnerPct/totalTeams,
-          intermediate_pct: intermediatePct/totalTeams,
-          advanced_pct: expertPct/totalTeams,
+          beginner_pct: beginnerPct / 100,
+          intermediate_pct: intermediatePct / 100,
+          advanced_pct: expertPct / 100,
         }),
       });
 
