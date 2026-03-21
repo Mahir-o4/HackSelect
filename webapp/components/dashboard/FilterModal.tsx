@@ -197,6 +197,8 @@ export const FilterModal = ({ hackathonId, mode = "full", onNext, onBack }: Prop
     expert: Math.round((expertPct / 100) * totalTeams),
   };
 
+  console.log(quotas)
+
   const getClusterPayload = () => {
     const both = sources.github && sources.resume;
     const githubOnly = sources.github && !sources.resume;
@@ -251,11 +253,13 @@ export const FilterModal = ({ hackathonId, mode = "full", onNext, onBack }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           max_teams: totalTeams,
-          beginner_pct: beginnerPct / 100,
-          intermediate_pct: intermediatePct / 100,
-          advanced_pct: expertPct / 100,
+          beginner_pct: beginnerPct/totalTeams,
+          intermediate_pct: intermediatePct/totalTeams,
+          advanced_pct: expertPct/totalTeams,
         }),
       });
+
+      console.log(res.body)
       const json = await res.json();
       if (!res.ok) {
         setAutoSelectError(json?.detail ?? "Auto-select failed. Please try again.");
