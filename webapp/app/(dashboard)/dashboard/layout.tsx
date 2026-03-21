@@ -10,6 +10,13 @@ interface Hackathon {
   name: string;
 }
 
+// At the top of layout.tsx, add this interface
+interface Judge {
+  name: string;
+  email: string;
+  specialisations: string[];
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [hackathons, setHackathons] = useState<Hackathon[]>([]);
@@ -29,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     fetchHackathons();
   }, []);
 
-  const createHackathon = async (name: string, file: File | null) => {
+  const createHackathon = async (name: string, file: File | null, judges: Judge[]) => {
     try {
       // 1. Create hackathon
       const res = await fetch("/api/hackathon", {
@@ -48,6 +55,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         formData.append("file", file);
         formData.append("hackathonId", hackathonId);
         await fetch("/api/upload", { method: "POST", body: formData });
+      }
+
+      if (judges.length > 0) {
+        await fetch("/api/judges", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hackathonId,
+            judges: judges.map((j) => ({
+              name: j.name,
+              email: j.email,
+              specialisations: j.specialisations, // ← not domains
+            })),
+          }),
+        });
       }
 
       // 3. Update sidebar
