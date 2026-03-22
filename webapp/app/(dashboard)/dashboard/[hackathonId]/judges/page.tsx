@@ -37,8 +37,7 @@ interface Judge {
 }
 
 export default function JudgesPage() {
-  const params = useParams();
-  const hackathonId = params.hackathonId as string;
+  const { hackathonId } = useParams<{ hackathonId: string }>();
   const [judges, setJudges] = useState<Judge[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
