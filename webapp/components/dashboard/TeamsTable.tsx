@@ -5,6 +5,7 @@ import {
   ColumnDef,
   ColumnFiltersState,
   SortingState,
+  Column,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -14,7 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown, ChevronUp, ChevronsUpDown,
-  ExternalLink, Plus, Minus, UserPlus,
+  Plus, Minus, UserPlus,
   GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText
 } from "lucide-react";
 import { toast } from "sonner";
@@ -77,33 +78,13 @@ interface TeamsTableProps {
   checkedTeamIds: Set<string>;
   onToggleCheck: (teamId: string) => void;
   isSaving?: boolean;
+  onFinalSave: () => void;
+  isFinalSaving?: boolean;
   onModify: (type: "recluster" | "reselect") => void; // ← correct type
+  isSaved?: boolean;
 }
 
-function ActionBtn({
-  icon, label, onClick, active, accent, disabled,
-}: {
-  icon: React.ReactNode; label: string; onClick: () => void;
-  active?: boolean; accent?: boolean; disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-      style={{
-        background: accent ? "hsl(var(--accent))" : active ? "hsl(var(--accent) / 0.12)" : "transparent",
-        color: accent ? "hsl(var(--accent-foreground))" : active ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))",
-        borderColor: accent ? "transparent" : active ? "hsl(var(--accent) / 0.4)" : "hsl(var(--border) / 0.6)",
-        boxShadow: accent ? "0 0 12px hsl(var(--accent) / 0.3)" : "none",
-      }}
-    >
-      {icon}{label}
-    </button>
-  );
-}
-
-function SortHeader({ column, label }: { column: any; label: string }) {
+function SortHeader({ column, label }: { column: Column<Team, unknown>; label: string }) {
   const sorted = column.getIsSorted();
   return (
     <button
@@ -139,12 +120,16 @@ export default function TeamsTable({
   onToggleCheck,
   onModify,
   isSaving = false,
+  onFinalSave,
+  isFinalSaving = false,
+  isSaved = false
 }: TeamsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [search, setSearch] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [modifyOpen, setModifyOpen] = useState(false);
+  const [showFinalSaveDialog, setShowFinalSaveDialog] = useState(false);
   const modifyRef = useRef<HTMLDivElement>(null);
 
   const isOnSelectedTab = activeTab === "selected";
@@ -485,7 +470,22 @@ export default function TeamsTable({
         {/* Action buttons */}
         {hasAnalysisRun && (
           <div className="flex items-center gap-1.5 shrink-0">
-            {!editMode ? (
+            {isSaved ? (
+              <span
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  background: "hsl(var(--accent) / 0.08)",
+                  border: "1px solid hsl(var(--accent) / 0.25)",
+                  color: "hsl(var(--accent))",
+                }}
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Finalised
+              </span>
+            ) : !editMode ? (
               <>
                 {/* ── Modify dropdown ── */}
                 <div ref={modifyRef} className="relative">
@@ -573,36 +573,163 @@ export default function TeamsTable({
                 />
               </>
             ) : (
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-full"
-                  style={{
-                    background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
-                    color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
-                    border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
-                  }}
-                >
-                  {selectedCount}/{totalSpotsLimit} teams
-                </span>
+              <>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                    style={{
+                      background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
+                      color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
+                      border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
+                    }}
+                  >
+                    {selectedCount}/{totalSpotsLimit} teams
+                  </span>
 
-                <ActionBtn
-                  icon={
-                    isSaving ? (
+                  <ActionBtn
+                    icon={
+                      isSaving ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        />
+                      ) : (
+                        <Save className="w-3 h-3" />
+                      )
+                    }
+                    label={isSaving ? "Saving..." : "Save Draft"}
+                    onClick={onSave}
+                    disabled={isSaving || isFinalSaving}
+                  />
+
+                  <ActionBtn
+                    icon={
+                      isFinalSaving ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        />
+                      ) : (
+                        <Save className="w-3 h-3" />
+                      )
+                    }
+                    label={isFinalSaving ? "Saving..." : "Save"}
+                    onClick={() => setShowFinalSaveDialog(true)}
+                    accent
+                    disabled={isSaving || isFinalSaving}
+                  />
+                </div>
+
+                {/* ── Final Save Confirmation Dialog ── */}
+                <AnimatePresence>
+                  {showFinalSaveDialog && (
+                    <>
                       <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="fixed inset-0 z-40"
+                        style={{ background: "hsl(0 0% 0% / 0.5)" }}
+                        onClick={() => setShowFinalSaveDialog(false)}
                       />
-                    ) : (
-                      <Save className="w-3 h-3" />
-                    )
-                  }
-                  label={isSaving ? "Saving..." : "Save"}
-                  onClick={onSave}
-                  accent
-                  disabled={isSaving}
-                />
-              </div>
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                        transition={{ duration: 0.18 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+                      >
+                        <div
+                          className="pointer-events-auto w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
+                          style={{
+                            background: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border) / 0.6)",
+                            boxShadow: "0 24px 64px hsl(0 0% 0% / 0.5)",
+                          }}
+                        >
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{
+                              background: "hsl(var(--destructive) / 0.1)",
+                              border: "1px solid hsl(var(--destructive) / 0.3)",
+                            }}
+                          >
+                            <svg
+                              className="w-5 h-5"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="hsl(var(--destructive))"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <h3 className="text-base font-semibold text-foreground">
+                              Finalise team selection?
+                            </h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              You <span className="font-medium text-foreground">cannot change</span> the
+                              selected teams after this. This action is final and cannot be undone.
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              onClick={() => setShowFinalSaveDialog(false)}
+                              className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                              style={{
+                                background: "transparent",
+                                border: "1px solid hsl(var(--border) / 0.6)",
+                                color: "hsl(var(--muted-foreground))",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
+                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
+                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowFinalSaveDialog(false);
+                                onFinalSave();
+                              }}
+                              className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                              style={{
+                                background: "hsl(var(--destructive))",
+                                color: "hsl(var(--destructive-foreground))",
+                                border: "1px solid transparent",
+                                boxShadow: "0 0 16px hsl(var(--destructive) / 0.3)",
+                              }}
+                              onMouseEnter={(e) => {
+                                (e.currentTarget as HTMLElement).style.opacity = "0.9";
+                              }}
+                              onMouseLeave={(e) => {
+                                (e.currentTarget as HTMLElement).style.opacity = "1";
+                              }}
+                            >
+                              Confirm & Save
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </>
             )}
           </div>
         )}
@@ -850,9 +977,9 @@ export default function TeamsTable({
 
                                     {/* Personal score */}
                                     <div className="ml-auto shrink-0 flex items-center gap-1.5">
-                                      {(p as any).memberScore.gI !== undefined || (p as any).memberScore.rI !== undefined ? (
+                                      {p.memberScore?.gI !== undefined || p.memberScore?.rI !== undefined ? (
                                         <div className="flex items-center gap-1.5">
-                                          {(p as any).memberScore.gI !== undefined && (
+                                          {p.memberScore?.gI !== undefined && (
                                             <div
                                               className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
                                               style={{
@@ -864,11 +991,11 @@ export default function TeamsTable({
                                                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
                                               </svg>
                                               <span className="font-mono text-[10px]" style={{ color: "hsl(220, 15%, 65%)" }}>
-                                                {((p as any).memberScore.gI * 100).toFixed(0)}
+                                                {((p.memberScore.gI ?? 0) * 100).toFixed(0)}
                                               </span>
                                             </div>
                                           )}
-                                          {(p as any).memberScore.rI !== undefined && (
+                                          {p.memberScore?.rI !== undefined && (
                                             <div
                                               className="flex items-center gap-1 px-1.5 py-0.5 rounded-md"
                                               style={{
@@ -881,12 +1008,12 @@ export default function TeamsTable({
                                                 <polyline points="14 2 14 8 20 8" />
                                               </svg>
                                               <span className="font-mono text-[10px]" style={{ color: "hsl(270, 50%, 65%)" }}>
-                                                {((p as any).memberScore.rI * 100).toFixed(0)}
+                                                {((p.memberScore.rI ?? 0) * 100).toFixed(0)}
                                               </span>
                                             </div>
                                           )}
                                           {/* FINAL SCORE (ci) — highlight this */}
-                                          {(p as any).memberScore.cI !== undefined && (
+                                          {p.memberScore?.cI !== undefined && (
                                             <div
                                               className="flex items-center gap-1 px-2 py-0.5 rounded-md"
                                               style={{
@@ -898,7 +1025,7 @@ export default function TeamsTable({
                                                 className="font-mono text-[10px] font-semibold"
                                                 style={{ color: "hsl(var(--accent))" }}
                                               >
-                                                {((p as any).memberScore.cI * 100).toFixed(0)}
+                                                {((p.memberScore.cI ?? 0) * 100).toFixed(0)}
                                               </span>
                                             </div>
                                           )}
