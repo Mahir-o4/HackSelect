@@ -1,9 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { FileText, ExternalLink, Tag, Users } from "lucide-react";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  Column,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { ChevronUp, ChevronDown, ChevronsUpDown, FileText, ExternalLink, Tag, Search } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableFooter,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 interface Team {
     teamId: string;
@@ -14,6 +36,7 @@ interface PptSubmission {
     id: string;
     fileUrl: string;
     categories: string[];
+    score?: number | null;
     team: Team;
 }
 
@@ -31,11 +54,31 @@ interface Judge {
     assignments: Assignment[];
 }
 
+function SortHeader({ column, label }: { column: Column<Assignment, unknown>; label: string }) {
+    const sorted = column.getIsSorted();
+    return (
+        <button
+            onClick={() => column.toggleSorting(sorted === "asc")}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+            {label}
+            {sorted === "asc" ? <ChevronUp className="w-3 h-3" />
+                : sorted === "desc" ? <ChevronDown className="w-3 h-3" />
+                    : <ChevronsUpDown className="w-3 h-3 opacity-40" />}
+        </button>
+    );
+}
+
 export default function PublicJudgePage() {
-    const { hackathonId, judgeId } = useParams<{ hackathonId: string; judgeId: string }>();
+    const params = useParams();
+    const judgeId = params.judgeId as string;
+
     const [judge, setJudge] = useState<Judge | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [search, setSearch] = useState("");
 
     useEffect(() => {
         if (!judgeId) return;
@@ -49,9 +92,151 @@ export default function PublicJudgePage() {
             .finally(() => setLoading(false));
     }, [judgeId]);
 
+    const assignments = judge?.assignments ?? [];
+
+    const filteredAssignments = useMemo(() => {
+        if (!search.trim()) return assignments;
+        const q = search.toLowerCase();
+        return assignments.filter(
+            (a) =>
+                a.ppt.team.teamName.toLowerCase().includes(q) ||
+                a.ppt.categories.some((c) => c.toLowerCase().includes(q))
+        );
+    }, [assignments, search]);
+
+    const columns = useMemo<ColumnDef<Assignment>[]>(() => [
+        {
+            id: "index",
+            header: "#",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <span
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    style={{
+                        background: `hsl(${(row.index * 55 + 210) % 360}, 40%, 16%)`,
+                        color: `hsl(${(row.index * 55 + 210) % 360}, 60%, 62%)`,
+                    }}
+                >
+                    {row.index + 1}
+                </span>
+            ),
+        },
+        {
+            id: "team",
+            accessorFn: (row) => row.ppt.team.teamName,
+            header: ({ column }) => <SortHeader column={column} label="Team" />,
+            cell: ({ row }) => (
+                <span className="font-medium text-foreground">
+                    {row.original.ppt.team.teamName}
+                </span>
+            ),
+        },
+        {
+            id: "categories",
+            header: "Categories",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.ppt.categories.length > 0 ? (
+                        row.original.ppt.categories.map((c) => (
+                            <span
+                                key={c}
+                                className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                style={{
+                                    background: "hsl(var(--muted) / 0.5)",
+                                    color: "hsl(var(--muted-foreground))",
+                                    border: "1px solid hsl(var(--border) / 0.4)",
+                                }}
+                            >
+                                {c}
+                            </span>
+                        ))
+                    ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: "match",
+            accessorFn: (row) => row.isPrimaryMatch,
+            header: ({ column }) => <SortHeader column={column} label="Match" />,
+            cell: ({ row }) => (
+                <span
+                    className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                    style={{
+                        background: row.original.isPrimaryMatch
+                            ? "hsl(var(--accent) / 0.1)"
+                            : "hsl(var(--muted) / 0.4)",
+                        border: `1px solid ${row.original.isPrimaryMatch
+                            ? "hsl(var(--accent) / 0.3)"
+                            : "hsl(var(--border) / 0.3)"}`,
+                        color: row.original.isPrimaryMatch
+                            ? "hsl(var(--accent))"
+                            : "hsl(var(--muted-foreground))",
+                    }}
+                >
+                    {row.original.isPrimaryMatch ? "Primary" : "Fallback"}
+                </span>
+            ),
+        },
+        {
+            id: "score",
+            accessorFn: (row) => row.ppt.score ?? -1,
+            header: ({ column }) => <SortHeader column={column} label="Score" />,
+            cell: ({ row }) => (
+                row.original.ppt.score != null ? (
+                    <div className="flex items-center justify-center gap-1">
+                        <span
+                            className="font-mono font-semibold text-sm"
+                            style={{ color: "hsl(var(--accent))" }}
+                        >
+                            {row.original.ppt.score.toFixed(1)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">/100</span>
+                    </div>
+                ) : (
+                    <span className="text-xs text-muted-foreground/40">—</span>
+                )
+            ),
+        },
+        {
+            id: "ppt",
+            header: "PPT",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <div className="flex justify-end">
+                    <Button variant="ghost" size="sm" asChild>
+                        <a
+                            href={row.original.ppt.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-6 text-xs"
+                        >
+                            <FileText className="w-3 h-3" />
+                            View PPT
+                            <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                    </Button>
+                </div>
+            ),
+        },
+    ], []);
+
+    const table = useReactTable({
+        data: filteredAssignments,
+        columns,
+        state: { sorting, columnFilters },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    });
+
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen gap-3">
+            <div className="flex items-center justify-center h-full gap-3">
                 <motion.div
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
@@ -65,21 +250,27 @@ export default function PublicJudgePage() {
 
     if (error || !judge) {
         return (
-            <div className="flex items-center justify-center h-screen">
+            <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-muted-foreground">{error ?? "Something went wrong."}</p>
             </div>
         );
     }
 
+    const scoredCount = judge.assignments.filter(a => a.ppt.score != null).length;
+
     return (
-        <div className="min-h-screen px-6 py-8 max-w-2xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col gap-1 mb-8">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <div className="flex flex-col h-full overflow-hidden">
+
+            {/* ── Header ── */}
+            <div
+                className="px-6 py-4 shrink-0"
+                style={{ borderBottom: "1px solid hsl(var(--border) / 0.4)" }}
+            >
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
                     Judge Portal
                 </p>
-                <h1 className="text-2xl font-bold text-foreground">{judge.name}</h1>
-                <p className="text-sm text-muted-foreground">{judge.email}</p>
+                <h1 className="text-xl font-bold text-foreground font-mono">{judge.name}</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">{judge.email}</p>
 
                 {judge.specialisations.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -101,116 +292,98 @@ export default function PublicJudgePage() {
                 )}
             </div>
 
-            {/* Teams */}
-            <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <p className="text-sm font-semibold text-foreground">
-                        Assigned Teams
-                        <span
-                            className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded-full"
-                            style={{
-                                background: "hsl(var(--accent) / 0.1)",
-                                color: "hsl(var(--accent))",
-                            }}
-                        >
-                            {judge.assignments.length}
-                        </span>
-                    </p>
+            {/* ── Search ── */}
+            <div
+                className="px-4 py-2 shrink-0 flex items-center justify-between"
+                style={{ borderBottom: "1px solid hsl(var(--border) / 0.5)" }}
+            >
+                <span className="text-xs text-muted-foreground">
+                    {filteredAssignments.length} of {judge.assignments.length} team{judge.assignments.length !== 1 ? "s" : ""}
+                    {search && " matching"}
+                </span>
+                <div className="relative w-44">
+                    <Search
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+                        style={{ color: "hsl(var(--muted-foreground) / 0.5)" }}
+                    />
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search teams..."
+                        className="w-full h-7 pl-7 pr-2.5 text-xs rounded-md focus:outline-none transition-colors"
+                        style={{
+                            background: "transparent",
+                            border: "1px solid hsl(var(--border) / 0.6)",
+                            color: "hsl(var(--foreground))",
+                        }}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = "hsl(var(--accent) / 0.5)")}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = "hsl(var(--border) / 0.6)")}
+                    />
                 </div>
+            </div>
 
+            {/* ── Table ── */}
+            <div className="flex-1 overflow-auto">
                 {judge.assignments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                        No teams assigned yet.
-                    </p>
+                    <div className="flex items-center justify-center h-full">
+                        <p className="text-sm text-muted-foreground">No teams assigned yet.</p>
+                    </div>
+                ) : table.getRowModel().rows.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                        <p className="text-sm text-muted-foreground">No teams match &ldquo;{search}&rdquo;</p>
+                    </div>
                 ) : (
-                    judge.assignments.map((a, i) => (
-                        <motion.div
-                            key={a.id}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="flex items-center gap-4 px-4 py-3 rounded-xl"
-                            style={{
-                                background: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border) / 0.5)",
-                            }}
-                        >
-                            {/* Index */}
-                            <span
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                                style={{
-                                    background: `hsl(${(i * 55 + 210) % 360}, 40%, 16%)`,
-                                    color: `hsl(${(i * 55 + 210) % 360}, 60%, 62%)`,
-                                }}
-                            >
-                                {i + 1}
-                            </span>
+                    <Table>
+                        <TableCaption>
+                            {judge.assignments.length} team{judge.assignments.length !== 1 ? "s" : ""} assigned &middot;{" "}
+                            {scoredCount} scored
+                        </TableCaption>
 
-                            {/* Team info */}
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                    {a.ppt.team.teamName}
-                                </p>
-                                {a.ppt.categories.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                        {a.ppt.categories.map((c) => (
-                                            <span
-                                                key={c}
-                                                className="text-[9px] px-1.5 py-0.5 rounded-full"
-                                                style={{
-                                                    background: "hsl(var(--muted) / 0.5)",
-                                                    color: "hsl(var(--muted-foreground))",
-                                                    border: "1px solid hsl(var(--border) / 0.4)",
-                                                }}
-                                            >
-                                                {c}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Primary badge */}
-                            {a.isPrimaryMatch && (
-                                <span
-                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0"
-                                    style={{
-                                        background: "hsl(var(--accent) / 0.1)",
-                                        border: "1px solid hsl(var(--accent) / 0.3)",
-                                        color: "hsl(var(--accent))",
-                                    }}
+                        <TableHeader>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <TableRow
+                                    key={headerGroup.id}
+                                    className="hover:bg-transparent"
+                                    style={{ borderColor: "hsl(var(--border) / 0.4)" }}
                                 >
-                                    Primary
-                                </span>
-                            )}
+                                    {headerGroup.headers.map((header) => (
+                                        <TableHead key={header.id}>
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(header.column.columnDef.header, header.getContext())}
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableHeader>
 
-                            {/* PPT link */}
-                            <a
-                                href={a.ppt.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0"
-                                style={{
-                                    background: "hsl(270, 30%, 10%)",
-                                    border: "1px solid hsl(270, 30%, 20%)",
-                                    color: "hsl(270, 50%, 65%)",
-                                }}
-                                onMouseEnter={(e) => {
-                                    (e.currentTarget as HTMLElement).style.color = "hsl(270, 50%, 80%)";
-                                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(270, 30%, 35%)";
-                                }}
-                                onMouseLeave={(e) => {
-                                    (e.currentTarget as HTMLElement).style.color = "hsl(270, 50%, 65%)";
-                                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(270, 30%, 20%)";
-                                }}
-                            >
-                                <FileText className="w-3 h-3" />
-                                View PPT
-                                <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                        </motion.div>
-                    ))
+                        <TableBody>
+                            {table.getRowModel().rows.map((row) => (
+                                <TableRow
+                                    key={row.original.id}
+                                    style={{ borderColor: "hsl(var(--border) / 0.2)" }}
+                                >
+                                    {row.getVisibleCells().map((cell) => (
+                                        <TableCell key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+
+                        <TableFooter>
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-xs text-muted-foreground">
+                                    {judge.assignments.length} team{judge.assignments.length !== 1 ? "s" : ""} assigned
+                                </TableCell>
+                                <TableCell className="text-center text-xs text-muted-foreground">
+                                    {scoredCount} scored
+                                </TableCell>
+                                <TableCell />
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
                 )}
             </div>
         </div>

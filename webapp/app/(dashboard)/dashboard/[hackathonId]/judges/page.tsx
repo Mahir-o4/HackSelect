@@ -1,9 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Share2, Copy } from "lucide-react";
+import {
+    ColumnDef,
+    ColumnFiltersState,
+    SortingState,
+    Column,
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getSortedRowModel,
+    useReactTable,
+} from "@tanstack/react-table";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Share2, Copy, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -37,12 +48,32 @@ interface Judge {
     assignments: Assignment[];
 }
 
+function SortHeader({ column, label }: { column: Column<Judge, unknown>; label: string }) {
+    const sorted = column.getIsSorted();
+    return (
+        <button
+            onClick={() => column.toggleSorting(sorted === "asc")}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+            {label}
+            {sorted === "asc" ? <ChevronUp className="w-3 h-3" />
+                : sorted === "desc" ? <ChevronDown className="w-3 h-3" />
+                    : <ChevronsUpDown className="w-3 h-3 opacity-40" />}
+        </button>
+    );
+}
+
 export default function JudgesPage() {
-    const { hackathonId } = useParams<{ hackathonId: string }>();
+    const params = useParams();
+    const hackathonId = params.hackathonId as string;
+
     const [judges, setJudges] = useState<Judge[]>([]);
     const [loading, setLoading] = useState(true);
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [search, setSearch] = useState("");
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-    const [sharePopup, setSharePopup] = useState<string | null>(null); // stores judgeId
+    const [sharePopup, setSharePopup] = useState<string | null>(null);
 
     useEffect(() => {
         const loadJudges = async () => {
@@ -66,6 +97,151 @@ export default function JudgesPage() {
             return s;
         });
 
+    const filteredJudges = useMemo(() => {
+        if (!search.trim()) return judges;
+        const q = search.toLowerCase();
+        return judges.filter(
+            (j) =>
+                j.name.toLowerCase().includes(q) ||
+                j.email.toLowerCase().includes(q) ||
+                j.specialisations.some((s) => s.toLowerCase().includes(q))
+        );
+    }, [judges, search]);
+
+    const columns = useMemo<ColumnDef<Judge>[]>(() => [
+        {
+            id: "index",
+            header: "#",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    {row.index + 1}
+                </span>
+            ),
+        },
+        {
+            id: "name",
+            accessorKey: "name",
+            header: ({ column }) => <SortHeader column={column} label="Name" />,
+            cell: ({ row }) => {
+                const judge = row.original;
+                const isExpanded = expandedRows.has(judge.id);
+                const hue = (row.index * 55 + 210) % 360;
+                return (
+                    <button
+                        onClick={() => toggleExpand(judge.id)}
+                        className="flex items-center gap-2 group font-medium text-foreground text-left"
+                    >
+                        <motion.span
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.18 }}
+                            className="inline-flex shrink-0 text-muted-foreground group-hover:text-foreground transition-colors"
+                        >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        </motion.span>
+                        <span
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{
+                                background: `hsl(${hue}, 40%, 16%)`,
+                                border: `1px solid hsl(${hue}, 40%, 26%)`,
+                                color: `hsl(${hue}, 60%, 62%)`,
+                            }}
+                        >
+                            {judge.name.charAt(0).toUpperCase()}
+                        </span>
+                        {judge.name}
+                    </button>
+                );
+            },
+        },
+        {
+            id: "email",
+            accessorKey: "email",
+            header: ({ column }) => <SortHeader column={column} label="Email" />,
+            cell: ({ row }) => (
+                <span className="text-xs font-mono text-muted-foreground">{row.original.email}</span>
+            ),
+        },
+        {
+            id: "specialisations",
+            header: "Specialisations",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.specialisations.length > 0 ? (
+                        row.original.specialisations.map((spec) => (
+                            <span
+                                key={spec}
+                                className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                                style={{
+                                    background: "hsl(var(--accent) / 0.1)",
+                                    border: "1px solid hsl(var(--accent) / 0.25)",
+                                    color: "hsl(var(--accent))",
+                                }}
+                            >
+                                {spec}
+                            </span>
+                        ))
+                    ) : (
+                        <span className="text-xs text-muted-foreground/40">—</span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: "pptCount",
+            accessorFn: (row) => row.assignments.length,
+            header: ({ column }) => <SortHeader column={column} label="PPTs" />,
+            cell: ({ row }) => (
+                <span
+                    className="inline-block font-mono text-xs px-2 py-0.5 rounded-full"
+                    style={{
+                        background: row.original.assignments.length > 0
+                            ? "hsl(var(--accent) / 0.1)"
+                            : "hsl(var(--muted) / 0.5)",
+                        border: `1px solid ${row.original.assignments.length > 0
+                            ? "hsl(var(--accent) / 0.25)"
+                            : "hsl(var(--border) / 0.3)"}`,
+                        color: row.original.assignments.length > 0
+                            ? "hsl(var(--accent))"
+                            : "hsl(var(--muted-foreground) / 0.4)",
+                    }}
+                >
+                    {row.original.assignments.length}
+                </span>
+            ),
+        },
+        {
+            id: "actions",
+            header: "Actions",
+            enableSorting: false,
+            cell: ({ row }) => (
+                <div className="flex justify-end">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSharePopup(row.original.id)}
+                        className="text-xs h-6"
+                    >
+                        <Share2 className="w-3 h-3" />
+                        Share
+                    </Button>
+                </div>
+            ),
+        },
+    ], [expandedRows, toggleExpand]);
+
+    const table = useReactTable({
+        data: filteredJudges,
+        columns,
+        state: { sorting, columnFilters },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setColumnFilters,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    });
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -87,11 +263,6 @@ export default function JudgesPage() {
 
     const totalAssignments = judges.reduce((s, j) => s + j.assignments.length, 0);
 
-    const handleShare = (judgeId: string) => {
-        const url = `${window.location.origin}/dashboard/${hackathonId}/judge/${judgeId}`;
-        navigator.clipboard.writeText(url);
-    };
-
     return (
         <div className="flex flex-col h-full overflow-hidden">
 
@@ -109,237 +280,185 @@ export default function JudgesPage() {
                 </p>
             </div>
 
+            {/* ── Search toolbar ── */}
+            <div
+                className="flex items-center justify-between px-4 py-2 shrink-0"
+                style={{ borderBottom: "1px solid hsl(var(--border) / 0.5)" }}
+            >
+                <span className="text-xs text-muted-foreground">
+                    {filteredJudges.length} of {judges.length} judge{judges.length !== 1 ? "s" : ""}
+                    {search && " matching"}
+                </span>
+                <div className="relative w-44">
+                    <Search
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+                        style={{ color: "hsl(var(--muted-foreground) / 0.5)" }}
+                    />
+                    <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search judges..."
+                        className="w-full h-7 pl-7 pr-2.5 text-xs rounded-md focus:outline-none transition-colors"
+                        style={{
+                            background: "transparent",
+                            border: "1px solid hsl(var(--border) / 0.6)",
+                            color: "hsl(var(--foreground))",
+                        }}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = "hsl(var(--accent) / 0.5)")}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = "hsl(var(--border) / 0.6)")}
+                    />
+                </div>
+            </div>
+
             {/* ── Table ── */}
             <div className="flex-1 overflow-auto">
                 <Table>
                     <TableHeader>
-                        <TableRow style={{ borderColor: "hsl(var(--border) / 0.4)" }}>
-                            <TableHead className="w-10">#</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Specialisations</TableHead>
-                            <TableHead className="text-center w-20">PPTs</TableHead>
-                            <TableHead className="text-right w-28">Actions</TableHead>
-                        </TableRow>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow
+                                key={headerGroup.id}
+                                className="hover:bg-transparent"
+                                style={{ borderColor: "hsl(var(--border) / 0.4)" }}
+                            >
+                                {headerGroup.headers.map((header) => (
+                                    <TableHead key={header.id}>
+                                        {header.isPlaceholder
+                                            ? null
+                                            : flexRender(header.column.columnDef.header, header.getContext())}
+                                    </TableHead>
+                                ))}
+                            </TableRow>
+                        ))}
                     </TableHeader>
 
                     <TableBody>
-                        {judges.map((judge, i) => {
-                            const isExpanded = expandedRows.has(judge.id);
-                            const hue = (i * 55 + 210) % 360;
+                        {table.getRowModel().rows.length ? (
+                            table.getRowModel().rows.map((row) => {
+                                const judge = row.original;
+                                const isExpanded = expandedRows.has(judge.id);
 
-                            return (
-                                <React.Fragment key={judge.id}>
-                                    <TableRow
-                                        style={{ borderColor: "hsl(var(--border) / 0.2)" }}
-                                    >
-                                        {/* # */}
-                                        <TableCell>
-                                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                                {i + 1}
-                                            </span>
-                                        </TableCell>
+                                return (
+                                    <React.Fragment key={judge.id}>
+                                        <TableRow style={{ borderColor: "hsl(var(--border) / 0.2)" }}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell key={cell.id}>
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
 
-                                        {/* Name */}
-                                        <TableCell>
-                                            <button
-                                                onClick={() => toggleExpand(judge.id)}
-                                                className="flex items-center gap-2 group font-medium text-foreground text-left"
-                                            >
-                                                <motion.span
-                                                    animate={{ rotate: isExpanded ? 180 : 0 }}
-                                                    transition={{ duration: 0.18 }}
-                                                    className="inline-flex shrink-0 text-muted-foreground group-hover:text-foreground transition-colors"
-                                                >
-                                                    <ChevronDown className="w-3.5 h-3.5" />
-                                                </motion.span>
-                                                <span
-                                                    className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                                        {/* ── Expanded PPT assignments ── */}
+                                        <AnimatePresence>
+                                            {isExpanded && (
+                                                <tr
+                                                    key={`${judge.id}-expanded`}
                                                     style={{
-                                                        background: `hsl(${hue}, 40%, 16%)`,
-                                                        border: `1px solid hsl(${hue}, 40%, 26%)`,
-                                                        color: `hsl(${hue}, 60%, 62%)`,
+                                                        background: "hsl(var(--muted) / 0.08)",
+                                                        borderBottom: "1px solid hsl(var(--border) / 0.15)",
                                                     }}
                                                 >
-                                                    {judge.name.charAt(0).toUpperCase()}
-                                                </span>
-                                                {judge.name}
-                                            </button>
-                                        </TableCell>
-
-                                        {/* Email */}
-                                        <TableCell>
-                                            <span className="text-xs font-mono text-muted-foreground">
-                                                {judge.email}
-                                            </span>
-                                        </TableCell>
-
-                                        {/* Specialisations */}
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {judge.specialisations.length > 0 ? (
-                                                    judge.specialisations.map((spec) => (
-                                                        <span
-                                                            key={spec}
-                                                            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                                                            style={{
-                                                                background: "hsl(var(--accent) / 0.1)",
-                                                                border: "1px solid hsl(var(--accent) / 0.25)",
-                                                                color: "hsl(var(--accent))",
-                                                            }}
+                                                    <td colSpan={columns.length} className="px-10 py-0">
+                                                        <motion.div
+                                                            initial={{ opacity: 0, height: 0 }}
+                                                            animate={{ opacity: 1, height: "auto" }}
+                                                            exit={{ opacity: 0, height: 0 }}
+                                                            transition={{ duration: 0.18 }}
+                                                            className="overflow-hidden"
                                                         >
-                                                            {spec}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground/40">—</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-
-                                        {/* PPT count badge */}
-                                        <TableCell className="text-center">
-                                            <span
-                                                className="inline-block font-mono text-xs px-2 py-0.5 rounded-full"
-                                                style={{
-                                                    background: judge.assignments.length > 0
-                                                        ? "hsl(var(--accent) / 0.1)"
-                                                        : "hsl(var(--muted) / 0.5)",
-                                                    border: `1px solid ${judge.assignments.length > 0
-                                                        ? "hsl(var(--accent) / 0.25)"
-                                                        : "hsl(var(--border) / 0.3)"}`,
-                                                    color: judge.assignments.length > 0
-                                                        ? "hsl(var(--accent))"
-                                                        : "hsl(var(--muted-foreground) / 0.4)",
-                                                }}
-                                            >
-                                                {judge.assignments.length}
-                                            </span>
-                                        </TableCell>
-
-                                        {/* Share */}
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost" 
-                                                size="sm"
-                                                onClick={() => setSharePopup(judge.id)}
-                                                className="text-xs h-6"
-                                            >
-                                                <Share2 className="w-3 h-3" />
-                                                Share
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-
-                                    {/* ── Expanded PPT assignments ── */}
-                                    <AnimatePresence>
-                                        {isExpanded && (
-                                            <tr
-                                                key={`${judge.id}-expanded`}
-                                                style={{
-                                                    background: "hsl(var(--muted) / 0.08)",
-                                                    borderBottom: "1px solid hsl(var(--border) / 0.15)",
-                                                }}
-                                            >
-                                                <td colSpan={6} className="px-10 py-0">
-                                                    <motion.div
-                                                        initial={{ opacity: 0, height: 0 }}
-                                                        animate={{ opacity: 1, height: "auto" }}
-                                                        exit={{ opacity: 0, height: 0 }}
-                                                        transition={{ duration: 0.18 }}
-                                                        className="overflow-hidden"
-                                                    >
-                                                        {judge.assignments.length === 0 ? (
-                                                            <p className="py-3 text-xs text-muted-foreground/50">
-                                                                No PPTs assigned yet.
-                                                            </p>
-                                                        ) : (
-                                                            <div className="py-2">
-                                                                {judge.assignments.map((a, ai) => (
-                                                                    <div
-                                                                        key={a.id}
-                                                                        className="flex items-center gap-4 py-2.5 text-xs"
-                                                                        style={{
-                                                                            borderBottom:
-                                                                                ai < judge.assignments.length - 1
-                                                                                    ? "1px solid hsl(var(--border) / 0.1)"
-                                                                                    : "none",
-                                                                        }}
-                                                                    >
-                                                                        {/* Team name */}
-                                                                        <span className="font-medium text-foreground w-40 shrink-0 truncate">
-                                                                            {a.ppt.team.teamName}
-                                                                        </span>
-
-                                                                        {/* Categories */}
-                                                                        <div className="flex flex-wrap gap-1 flex-1">
-                                                                            {a.ppt.categories.length > 0 ? (
-                                                                                a.ppt.categories.map((cat) => (
-                                                                                    <span
-                                                                                        key={cat}
-                                                                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                                                                                        style={{
-                                                                                            background: "hsl(var(--muted) / 0.5)",
-                                                                                            border: "1px solid hsl(var(--border) / 0.4)",
-                                                                                            color: "hsl(var(--muted-foreground))",
-                                                                                        }}
-                                                                                    >
-                                                                                        {cat}
-                                                                                    </span>
-                                                                                ))
-                                                                            ) : (
-                                                                                <span className="text-muted-foreground/40">No categories</span>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {/* Primary / Fallback badge */}
-                                                                        <span
-                                                                            className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                                            {judge.assignments.length === 0 ? (
+                                                                <p className="py-3 text-xs text-muted-foreground/50">
+                                                                    No PPTs assigned yet.
+                                                                </p>
+                                                            ) : (
+                                                                <div className="py-2">
+                                                                    {judge.assignments.map((a, ai) => (
+                                                                        <div
+                                                                            key={a.id}
+                                                                            className="flex items-center gap-4 py-2.5 text-xs"
                                                                             style={{
-                                                                                background: a.isPrimaryMatch
-                                                                                    ? "hsl(143, 60%, 50% / 0.1)"
-                                                                                    : "hsl(var(--muted) / 0.4)",
-                                                                                border: `1px solid ${a.isPrimaryMatch
-                                                                                    ? "hsl(143, 60%, 50% / 0.3)"
-                                                                                    : "hsl(var(--border) / 0.3)"}`,
-                                                                                color: a.isPrimaryMatch
-                                                                                    ? "hsl(143, 60%, 50%)"
-                                                                                    : "hsl(var(--muted-foreground))",
+                                                                                borderBottom:
+                                                                                    ai < judge.assignments.length - 1
+                                                                                        ? "1px solid hsl(var(--border) / 0.1)"
+                                                                                        : "none",
                                                                             }}
                                                                         >
-                                                                            {a.isPrimaryMatch ? "Primary" : "Fallback"}
-                                                                        </span>
+                                                                            <span className="font-medium text-foreground w-40 shrink-0 truncate">
+                                                                                {a.ppt.team.teamName}
+                                                                            </span>
 
-                                                                        {/* PPT link */}
-                                                                        {a.ppt.fileUrl && (
-                                                                            <a
-                                                                                href={a.ppt.fileUrl}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                className="shrink-0 text-[10px] underline underline-offset-2 transition-colors"
-                                                                                style={{ color: "hsl(var(--muted-foreground) / 0.6)" }}
-                                                                                onMouseEnter={(e) => {
-                                                                                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--accent))";
-                                                                                }}
-                                                                                onMouseLeave={(e) => {
-                                                                                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground) / 0.6)";
+                                                                            <div className="flex flex-wrap gap-1 flex-1">
+                                                                                {a.ppt.categories.length > 0 ? (
+                                                                                    a.ppt.categories.map((cat) => (
+                                                                                        <span
+                                                                                            key={cat}
+                                                                                            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                                                                                            style={{
+                                                                                                background: "hsl(var(--muted) / 0.5)",
+                                                                                                border: "1px solid hsl(var(--border) / 0.4)",
+                                                                                                color: "hsl(var(--muted-foreground))",
+                                                                                            }}
+                                                                                        >
+                                                                                            {cat}
+                                                                                        </span>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <span className="text-muted-foreground/40">No categories</span>
+                                                                                )}
+                                                                            </div>
+
+                                                                            <span
+                                                                                className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                                                                style={{
+                                                                                    background: a.isPrimaryMatch
+                                                                                        ? "hsl(143, 60%, 50% / 0.1)"
+                                                                                        : "hsl(var(--muted) / 0.4)",
+                                                                                    border: `1px solid ${a.isPrimaryMatch
+                                                                                        ? "hsl(143, 60%, 50% / 0.3)"
+                                                                                        : "hsl(var(--border) / 0.3)"}`,
+                                                                                    color: a.isPrimaryMatch
+                                                                                        ? "hsl(143, 60%, 50%)"
+                                                                                        : "hsl(var(--muted-foreground))",
                                                                                 }}
                                                                             >
-                                                                                View PPT ↗
-                                                                            </a>
-                                                                        )}
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </motion.div>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </AnimatePresence>
-                                </React.Fragment>
-                            );
-                        })}
+                                                                                {a.isPrimaryMatch ? "Primary" : "Fallback"}
+                                                                            </span>
+
+                                                                            {a.ppt.fileUrl && (
+                                                                                <a
+                                                                                    href={a.ppt.fileUrl}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="shrink-0 text-[10px] underline underline-offset-2 transition-colors"
+                                                                                    style={{ color: "hsl(var(--muted-foreground) / 0.6)" }}
+                                                                                    onMouseEnter={(e) => {
+                                                                                        (e.currentTarget as HTMLElement).style.color = "hsl(var(--accent))";
+                                                                                    }}
+                                                                                    onMouseLeave={(e) => {
+                                                                                        (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground) / 0.6)";
+                                                                                    }}
+                                                                                >
+                                                                                    View PPT ↗
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </motion.div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </AnimatePresence>
+                                    </React.Fragment>
+                                );
+                            })
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
+                                    {search ? `No judges match "${search}"` : "No judges here."}
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </div>
@@ -357,7 +476,7 @@ export default function JudgesPage() {
                 </span>
             </div>
 
-            {/* Share popup */}
+            {/* ── Share popup ── */}
             <AnimatePresence>
                 {sharePopup && (
                     <>
@@ -391,7 +510,6 @@ export default function JudgesPage() {
                                     </p>
                                 </div>
 
-                                {/* URL display */}
                                 <div
                                     className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
                                     style={{
@@ -401,12 +519,11 @@ export default function JudgesPage() {
                                 >
                                     <span className="flex-1 text-xs font-mono text-muted-foreground truncate">
                                         {typeof window !== "undefined"
-                                            ? `${window.location.origin}/dashboard/${hackathonId}/judge/${sharePopup}`
+                                            ? `${window.location.origin}/dashboard/${hackathonId}/judges/${sharePopup}`
                                             : ""}
                                     </span>
                                 </div>
 
-                                {/* Actions */}
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setSharePopup(null)}

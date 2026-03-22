@@ -93,8 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="px-5 pt-5 pb-3 shrink-0 flex items-center gap-1.5">
-          <span className="text-base font-bold text-foreground">Hack</span>
-          <span className="text-base font-bold" style={{ color: "hsl(var(--accent))" }}>Select</span>
+          <span className="text-base font-bold text-foreground">Dev</span>
+          <span className="text-base font-bold" style={{ color: "hsl(var(--accent))" }}>Draft</span>
         </div>
         <main className="flex-1 overflow-hidden flex flex-col">
           {children}
