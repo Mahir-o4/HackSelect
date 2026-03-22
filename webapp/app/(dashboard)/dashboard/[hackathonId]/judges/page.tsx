@@ -220,10 +220,10 @@ export default function JudgesPage() {
                                         {/* Share */}
                                         <TableCell className="text-right">
                                             <Button
-                                                variant="hero"
+                                                variant="ghost" 
                                                 size="sm"
                                                 onClick={() => setSharePopup(judge.id)}
-                                                className="gap-1.5 h-7 text-xs px-3"
+                                                className="text-xs h-6"
                                             >
                                                 <Share2 className="w-3 h-3" />
                                                 Share

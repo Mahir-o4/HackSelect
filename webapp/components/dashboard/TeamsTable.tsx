@@ -305,26 +305,13 @@ export default function TeamsTable({
         const team = row.original;
         return (
           <div className="flex items-center gap-2">
-            <button
+            <Button
               onClick={() => onDetails(team)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs border transition-all"
-              style={{ border: "1px solid hsl(var(--border) / 0.5)", color: "hsl(var(--muted-foreground))" }}
-              onMouseEnter={(e) => {
-                const b = e.currentTarget as HTMLButtonElement;
-                b.style.color = "hsl(var(--foreground))";
-                b.style.borderColor = "hsl(var(--accent) / 0.4)";
-                b.style.background = "hsl(var(--accent) / 0.05)";
-              }}
-              onMouseLeave={(e) => {
-                const b = e.currentTarget as HTMLButtonElement;
-                b.style.color = "hsl(var(--muted-foreground))";
-                b.style.borderColor = "hsl(var(--border) / 0.5)";
-                b.style.background = "";
-              }}
+              variant="ghost" size="sm" className="text-xs h-6"
             >
               <FileText className="w-3 h-3" />
               Summary
-            </button>
+            </Button>
 
             {removeMode && (
               <Button
@@ -487,44 +474,23 @@ export default function TeamsTable({
           {isSaved ? (
             <div className="flex items-center gap-1.5">
               {/* Upload PPT */}
-              <button
+              <Button
                 onClick={() => setShowPptUpload(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150"
-                style={{
-                  background: "hsl(var(--accent))",
-                  color: "hsl(var(--accent-foreground))",
-                  borderColor: "transparent",
-                  boxShadow: "0 0 12px hsl(var(--accent) / 0.3)",
-                }}
+                variant="hero" className="text-xs h-7" size="sm"
               >
                 <Upload className="w-3 h-3" />
                 Upload PPT
-              </button>
+              </Button>
 
               {/* Judges button — only after allocation */}
               {isAllocated && (
-                <button
+                <Button
                   onClick={onViewJudges}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150"
-                  style={{
-                    background: "transparent",
-                    border: "1px solid hsl(var(--border) / 0.6)",
-                    color: "hsl(var(--muted-foreground))",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
-                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
-                    (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
-                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
-                  }}
+                  variant="outline" className="text-xs h-7" size="sm"
                 >
                   <Users className="w-3 h-3" />
                   Judges
-                </button>
+                </Button>
               )}
 
               <PptUploadModal
