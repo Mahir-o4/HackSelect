@@ -21,7 +21,7 @@ const fontMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "HackSelect",
+  title: "DevDraft",
   description: "AI powered hackathon screening system",
 }
 

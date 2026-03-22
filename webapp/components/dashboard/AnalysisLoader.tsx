@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/refs */
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -168,9 +170,9 @@ export default function AnalysisLoader({ hackathonId, onComplete }: AnalysisLoad
                 background: error
                   ? "hsl(var(--destructive))"
                   : "linear-gradient(90deg, hsl(var(--accent) / 0.7), hsl(var(--accent)))",
-                width: `${progress}%`,
                 boxShadow: error ? "none" : "0 0 8px hsl(var(--accent) / 0.6)",
               }}
+              animate={{ width: error ? "100%" : `${Math.max(progress, 3)}%` }}
               transition={{ duration: 0.4, ease: "easeOut" }}
             />
           </div>

@@ -13,7 +13,7 @@ const Footer = () => (
           <a href="#" className="hover:text-foreground transition-colors">Contact</a>
         </div>
         <p className="text-sm text-muted-foreground">
-          © 2026 HackSelect. All rights reserved.
+          © 2026 DevDraft. All rights reserved.
         </p>
       </div>
     </div>

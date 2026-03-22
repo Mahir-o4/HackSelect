@@ -248,7 +248,7 @@ export default function ChatBot({ hackathonId }: ChatBotProps) {
                   <Bot className="w-3.5 h-3.5" style={{ color: "hsl(var(--accent))" }} />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-foreground">HackSelect AI</p>
+                  <p className="text-xs font-semibold text-foreground">DevDraft AI</p>
                   <p className="text-[10px]">
                     {isStreaming ? (
                       <span style={{ color: "hsl(var(--accent))" }}>Thinking...</span>

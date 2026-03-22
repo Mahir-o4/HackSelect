@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
 
@@ -34,8 +34,11 @@ export default function HackathonDashboardPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isFinalSaving, setIsFinalSaving] = useState(false);
+  const [isAllocated, setIsAllocated] = useState(false);
 
-  useEffect(() => {
+  const router = useRouter();
+
+  /* useEffect(() => {
     const fetchData = async () => {
       try {
         // 1. Fetch teams
@@ -53,6 +56,7 @@ export default function HackathonDashboardPage() {
         if (hackJson.success && hackJson.data.saved) {
           setIsSaved(true);
         }
+        
 
         // 2. Check if selection already exists
         const selRes = await fetch(`/api/teams/${hackathonId}/selected`);
@@ -78,7 +82,59 @@ export default function HackathonDashboardPage() {
       }
     };
     if (hackathonId) fetchData();
-  }, [hackathonId]);
+  }, [hackathonId]);*/
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 1. Fetch teams
+        const teamsRes = await fetch(`/api/teams?hackathonId=${hackathonId}`);
+        const teamsJson = await teamsRes.json();
+        if (teamsJson.success) {
+          setAllTeams(teamsJson.data);
+          const name = teamsJson.data?.[0]?.hackathon?.name;
+          if (name) setHackathonName(name);
+        }
+
+        // Check hackathon saved status
+        const hackRes = await fetch(`/api/hackathon/${hackathonId}`);
+        const hackJson = await hackRes.json();
+        if (hackJson.success && hackJson.data.saved) {
+          setIsSaved(true);
+
+          // Check if allocation has already been done
+          const pptRes = await fetch(`/api/ppt-upload?hackathonId=${hackathonId}`);
+          const pptJson = await pptRes.json();
+          if (pptJson.success && pptJson.data.some((p: any) => p.assignment !== null)) {
+            setIsAllocated(true);
+          }
+        }
+
+        // 2. Check if selection already exists
+        const selRes = await fetch(`/api/teams/${hackathonId}/selected`);
+        if (selRes.ok) {
+          const selJson = await selRes.json();
+          if (selJson.success && selJson.data.length > 0) {
+            setSelectedTeamIds(new Set(selJson.data.map((t: { teamId: string }) => t.teamId)));
+            setSpotsLimit(selJson.data.length);
+            setActiveTab("selected");
+            setAppState("results");
+            return;
+          }
+        }
+
+        // 3. No selection yet — check autorun flag
+        const autorun = searchParams.get("autorun") === "true";
+        setAppState(autorun ? "analysing" : "idle");
+
+      } catch (err) {
+        console.error(err);
+        setAppState("idle");
+      }
+    };
+
+    if (hackathonId) fetchData();
+  }, [hackathonId]);  // ← make sure this closing is here
 
   const handleFinalSave = async () => {
     setIsFinalSaving(true);
@@ -240,6 +296,9 @@ export default function HackathonDashboardPage() {
           onSave={handleSave}
           isSaving={isSaving}
           totalSpotsLimit={spotsLimit}
+          onAllocationDone={() => setIsAllocated(true)}
+          isAllocated={isAllocated}
+          onViewJudges={() => router.push(`/dashboard/${hackathonId}/judges`)}
           teams={tableTeams}
           allTeams={allTeams}
           hasAnalysisRun={appState === "results"}
