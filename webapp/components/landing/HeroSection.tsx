@@ -47,7 +47,7 @@ const HeroSection = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/auth/signup">  
-            <Button variant="hero" size="lg" className="text-base px-8 py-6" >
+            <Button variant="hero" size="lg" className="text-base px-8 py-6" cursor="pointer">
               Start Screening <ArrowRight className="ml-1 w-4 h-4" />
             </Button>
             </Link>
