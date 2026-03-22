@@ -1,25 +1,63 @@
 "use client";
 
+<<<<<<< HEAD
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, Share2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+=======
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { SlidersHorizontal } from "lucide-react";
+>>>>>>> 63f55eaadc448ab38516833eddb3118509c2fa9e
 
-import HackathonHeader from "@/components/dashboard/HackathonHeader";
-import TeamsTable, { Team, TabType } from "@/components/dashboard/TeamsTable";
-import SummaryDrawer from "@/components/dashboard/SummaryDrawer";
-import ComparePanel from "@/components/dashboard/ComparePanel";
-import AnalysisLoader from "@/components/dashboard/AnalysisLoader";
-import { FilterModal, FieldsData } from "@/components/dashboard/FilterModal";
-import ChatBot from "@/components/dashboard/ChatBot";
-import { toast } from "sonner";
+interface PptSubmission {
+  id: string;
+  fileUrl: string;
+  categories: string[];
+  score?: number | null;
+  team: { teamId: string; teamName: string };
+}
 
-type AppState = "loading_teams" | "idle" | "filter" | "analysing" | "results" | "recluster" | "reselect";
+interface Assignment {
+  id: string;
+  isPrimaryMatch: boolean;
+  ppt: PptSubmission;
+}
 
-export default function HackathonDashboardPage() {
-  const { hackathonId } = useParams<{ hackathonId: string }>();
-  const searchParams = useSearchParams();
+interface Judge {
+  id: string;
+  name: string;
+  email: string;
+  specialisations: string[];
+  assignments: Assignment[];
+}
 
+<<<<<<< HEAD
+export default function JudgesPage() {
+  const params = useParams();
+  const hackathonId = params.hackathonId as string;
+  const [judges, setJudges] = useState<Judge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const loadJudges = async () => {
+      try {
+        const res = await fetch(`/api/judges?hackathonId=${hackathonId}`);
+        const json = await res.json();
+        if (json.success) setJudges(json.data);
+=======
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [hackathonName, setHackathonName] = useState("");
   const [appState, setAppState] = useState<AppState>("loading_teams");
@@ -76,11 +114,17 @@ export default function HackathonDashboardPage() {
         const autorun = searchParams.get("autorun") === "true";
         setAppState(autorun ? "analysing" : "idle");
 
+>>>>>>> 63f55eaadc448ab38516833eddb3118509c2fa9e
       } catch (err) {
         console.error(err);
-        setAppState("idle");
+      } finally {
+        setLoading(false);
       }
     };
+<<<<<<< HEAD
+    if (hackathonId) loadJudges();
+  }, [hackathonId]);
+=======
     if (hackathonId) fetchData();
   }, [hackathonId]);*/
 
@@ -135,160 +179,73 @@ export default function HackathonDashboardPage() {
 
     if (hackathonId) fetchData();
   }, [hackathonId]);  // ← make sure this closing is here
+>>>>>>> 63f55eaadc448ab38516833eddb3118509c2fa9e
 
-  const handleFinalSave = async () => {
-    setIsFinalSaving(true);
-    try {
-      const res = await fetch(`/api/hackathon/${hackathonId}/save`, {
-        method: "POST",
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json?.error ?? "Failed to finalise.");
-        return;
-      }
-      toast.success("Selection finalised — no further changes allowed.");
-      setIsSaved(true);
-      setEditMode(false);
-    } catch {
-      toast.error("Could not reach the server.");
-    } finally {
-      setIsFinalSaving(false);
-    }
-  };
+  const toggleExpand = (id: string) =>
+    setExpandedRows((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
 
-  const selectedTeams = allTeams.filter((t) => selectedTeamIds.has(t.teamId));
-  const unselectedTeams = allTeams.filter((t) => !selectedTeamIds.has(t.teamId));
-  const checkedTeams = allTeams.filter((t) => checkedTeamIds.has(t.teamId));
-  const totalParticipants = allTeams.reduce((sum, t) => sum + t.participant.length, 0);
-
-  const tableTeams =
-    appState !== "results"
-      ? allTeams
-      : activeTab === "selected"
-        ? selectedTeams
-        : activeTab === "unselected"
-          ? unselectedTeams
-          : allTeams;
-
-  // Called when pipeline SSE completes
-  const handleAnalysisComplete = async () => {
-    try {
-      const res = await fetch(`/api/teams?hackathonId=${hackathonId}`);
-      const json = await res.json();
-      if (json.success) setAllTeams(json.data);
-    } catch (err) {
-      console.error(err);
-    }
-    // Remove autorun from URL so refresh doesn't retrigger pipeline
-    window.history.replaceState({}, "", `/dashboard/${hackathonId}`);
-    setAppState("idle");
-  };
-
-  // Called when autoselect completes — sets real selected IDs from API
-  /*const handleFilterNext = (data: FieldsData) => {
-    setSelectedTeamIds(new Set(data.selectedTeamIds));
-    setSpotsLimit(data.totalTeams);
-    setActiveTab("selected");
-    setAppState("results");
-  };*/
-  const handleFilterNext = async (data: FieldsData) => {
-    setSelectedTeamIds(new Set(data.selectedTeamIds));
-    setSpotsLimit(data.totalTeams);
-    setActiveTab("selected");
-    setAppState("results");
-    try {
-      const res = await fetch(`/api/teams?hackathonId=${hackathonId}`);
-      const json = await res.json();
-      if (json.success) setAllTeams(json.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleExitCompare = () => {
-    setCompareMode(false);
-    setCheckedTeamIds(new Set());
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const res = await fetch(`http://localhost:8000/teams/${hackathonId}/selection`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          selected_team_ids: Array.from(selectedTeamIds),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json?.detail ?? "Failed to save selection.");
-        return;
-      }
-      toast.success(`Selection saved — ${json.total_selected} teams selected.`);
-      setEditMode(false);
-    } catch {
-      toast.error("Could not reach the pipeline server.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (appState === "loading_teams") {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-sm text-muted-foreground animate-pulse">Loading teams...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Loading judges...</p>
       </div>
     );
   }
 
+  if (!judges.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <p className="text-sm text-muted-foreground">No judges found for this hackathon.</p>
+        <p className="text-xs text-muted-foreground/60">
+          Add judges when creating the hackathon, or run PPT allocation first.
+        </p>
+      </div>
+    );
+  }
+
+  const totalAssignments = judges.reduce((s, j) => s + j.assignments.length, 0);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <HackathonHeader
-        hackathonName={hackathonName || hackathonId}
-        totalParticipants={totalParticipants}
-        hackathonId={hackathonId}
-        totalTeams={allTeams.length}
-        spots={appState === "results" ? selectedTeamIds.size : undefined}
-      />
 
-      {/* Filter screen */}
-      {appState === "filter" && (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div
-            className="w-full max-w-md rounded-2xl"
-            style={{
-              background: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border) / 0.6)",
-              boxShadow: "0 20px 60px hsl(0 0% 0% / 0.3)",
-            }}
-          >
-            <div className="px-6 pt-5 pb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">
-                Analysis Settings
-              </p>
-              <h2 className="text-lg font-bold text-foreground">Configure Filter</h2>
-            </div>
-            <FilterModal
-              hackathonId={hackathonId}
-              onNext={handleFilterNext}
-              onBack={() => setAppState("idle")}
-            />
-          </div>
-        </div>
-      )}
+      {/* ── Header ── */}
+      <div
+        className="px-6 py-4 shrink-0"
+        style={{ borderBottom: "1px solid hsl(var(--border) / 0.4)" }}
+      >
+        <p className="text-[10px] font-semibold tracking-widest uppercase text-muted-foreground mb-0.5">
+          Dashboard
+        </p>
+        <h1 className="text-xl font-bold text-foreground font-mono">Judge Assignments</h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          {judges.length} judge{judges.length !== 1 ? "s" : ""} &middot; {totalAssignments} PPTs assigned
+        </p>
+      </div>
 
-      {/* Analysis loading — pipeline SSE */}
-      {appState === "analysing" && (
-        <div className="flex-1">
-          <AnalysisLoader
-            hackathonId={hackathonId}
-            onComplete={handleAnalysisComplete}
-          />
-        </div>
-      )}
+      {/* ── Table ── */}
+      <div className="flex-1 overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow style={{ borderColor: "hsl(var(--border) / 0.4)" }}>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Specialisations</TableHead>
+              <TableHead className="text-center w-20">PPTs</TableHead>
+              <TableHead className="text-right w-28">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
 
+<<<<<<< HEAD
+          <TableBody>
+            {judges.map((judge, i) => {
+              const isExpanded = expandedRows.has(judge.id);
+              const hue = (i * 55 + 210) % 360;
+=======
       {/* Idle or Results: show TeamsTable */}
       {(appState === "idle" || appState === "results") && (
         <TeamsTable
@@ -342,79 +299,236 @@ export default function HackathonDashboardPage() {
           }
         />
       )}
+>>>>>>> 63f55eaadc448ab38516833eddb3118509c2fa9e
 
-      {/* Idle CTA */}
-      {appState === "idle" && (
-        <div
-          className="px-6 py-4 shrink-0 flex items-center justify-between"
-          style={{
-            borderTop: "1px solid hsl(var(--border) / 0.4)",
-            background: "hsl(var(--muted) / 0.1)",
-          }}
-        >
-          <p className="text-xs text-muted-foreground">
-            Run analysis to sort & score teams using ML
-          </p>
-          <button
-            onClick={() => setAppState("filter")}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-            style={{
-              background: "hsl(var(--accent))",
-              color: "hsl(var(--accent-foreground))",
-              boxShadow: "0 0 20px hsl(var(--accent) / 0.3)",
-            }}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Run Analysis
-          </button>
-        </div>
-      )}
+              return (
+                <React.Fragment key={judge.id}>
+                  <TableRow
+                    style={{ borderColor: "hsl(var(--border) / 0.2)" }}
+                  >
+                    {/* # */}
+                    <TableCell>
+                      <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                        {i + 1}
+                      </span>
+                    </TableCell>
 
-      {appState === "recluster" && (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md rounded-2xl"
-            style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border) / 0.6)", boxShadow: "0 20px 60px hsl(0 0% 0% / 0.3)" }}>
-            <div className="px-6 pt-5 pb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Re-cluster</p>
-              <h2 className="text-lg font-bold text-foreground">Data Sources</h2>
-            </div>
-            <FilterModal
-              hackathonId={hackathonId}
-              mode="recluster"
-              onNext={handleFilterNext}
-              onBack={() => setAppState("results")}
-            />
-          </div>
-        </div>
-      )}
+                    {/* Name */}
+                    <TableCell>
+                      <button
+                        onClick={() => toggleExpand(judge.id)}
+                        className="flex items-center gap-2 group font-medium text-foreground text-left"
+                      >
+                        <motion.span
+                          animate={{ rotate: isExpanded ? 180 : 0 }}
+                          transition={{ duration: 0.18 }}
+                          className="inline-flex shrink-0 text-muted-foreground group-hover:text-foreground transition-colors"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </motion.span>
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{
+                            background: `hsl(${hue}, 40%, 16%)`,
+                            border: `1px solid hsl(${hue}, 40%, 26%)`,
+                            color: `hsl(${hue}, 60%, 62%)`,
+                          }}
+                        >
+                          {judge.name.charAt(0).toUpperCase()}
+                        </span>
+                        {judge.name}
+                      </button>
+                    </TableCell>
 
-      {appState === "reselect" && (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md rounded-2xl"
-            style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border) / 0.6)", boxShadow: "0 20px 60px hsl(0 0% 0% / 0.3)" }}>
-            <div className="px-6 pt-5 pb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Re-select</p>
-              <h2 className="text-lg font-bold text-foreground">Team Quota</h2>
-            </div>
-            <FilterModal
-              hackathonId={hackathonId}
-              mode="reselect"
-              onNext={handleFilterNext}
-              onBack={() => setAppState("results")}
-            />
-          </div>
-        </div>
-      )}
+                    {/* Email */}
+                    <TableCell>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {judge.email}
+                      </span>
+                    </TableCell>
 
-      <SummaryDrawer team={detailsTeam} onClose={() => setDetailsTeam(null)} />
+                    {/* Specialisations */}
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {judge.specialisations.length > 0 ? (
+                          judge.specialisations.map((spec) => (
+                            <span
+                              key={spec}
+                              className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                              style={{
+                                background: "hsl(var(--accent) / 0.1)",
+                                border: "1px solid hsl(var(--accent) / 0.25)",
+                                color: "hsl(var(--accent))",
+                              }}
+                            >
+                              {spec}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground/40">—</span>
+                        )}
+                      </div>
+                    </TableCell>
 
-      <AnimatePresence>
-        {compareMode && (
-          <ComparePanel teams={checkedTeams} onClose={handleExitCompare} />
-        )}
-      </AnimatePresence>
+                    {/* PPT count badge */}
+                    <TableCell className="text-center">
+                      <span
+                        className="inline-block font-mono text-xs px-2 py-0.5 rounded-full"
+                        style={{
+                          background: judge.assignments.length > 0
+                            ? "hsl(var(--accent) / 0.1)"
+                            : "hsl(var(--muted) / 0.5)",
+                          border: `1px solid ${judge.assignments.length > 0
+                            ? "hsl(var(--accent) / 0.25)"
+                            : "hsl(var(--border) / 0.3)"}`,
+                          color: judge.assignments.length > 0
+                            ? "hsl(var(--accent))"
+                            : "hsl(var(--muted-foreground) / 0.4)",
+                        }}
+                      >
+                        {judge.assignments.length}
+                      </span>
+                    </TableCell>
 
-      {appState === "results" && <ChatBot hackathonId={hackathonId} />}
+                    {/* Share */}
+                    <TableCell className="text-right">
+                      <Button
+                        variant="hero"
+                        size="sm"
+                        onClick={() => void 0}
+                        className="gap-1.5 h-7 text-xs px-3"
+                      >
+                        <Share2 className="w-3 h-3" />
+                        Share
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* ── Expanded PPT assignments ── */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <tr
+                        key={`${judge.id}-expanded`}
+                        style={{
+                          background: "hsl(var(--muted) / 0.08)",
+                          borderBottom: "1px solid hsl(var(--border) / 0.15)",
+                        }}
+                      >
+                        <td colSpan={6} className="px-10 py-0">
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.18 }}
+                            className="overflow-hidden"
+                          >
+                            {judge.assignments.length === 0 ? (
+                              <p className="py-3 text-xs text-muted-foreground/50">
+                                No PPTs assigned yet.
+                              </p>
+                            ) : (
+                              <div className="py-2">
+                                {judge.assignments.map((a, ai) => (
+                                  <div
+                                    key={a.id}
+                                    className="flex items-center gap-4 py-2.5 text-xs"
+                                    style={{
+                                      borderBottom:
+                                        ai < judge.assignments.length - 1
+                                          ? "1px solid hsl(var(--border) / 0.1)"
+                                          : "none",
+                                    }}
+                                  >
+                                    {/* Team name */}
+                                    <span className="font-medium text-foreground w-40 shrink-0 truncate">
+                                      {a.ppt.team.teamName}
+                                    </span>
+
+                                    {/* Categories */}
+                                    <div className="flex flex-wrap gap-1 flex-1">
+                                      {a.ppt.categories.length > 0 ? (
+                                        a.ppt.categories.map((cat) => (
+                                          <span
+                                            key={cat}
+                                            className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                                            style={{
+                                              background: "hsl(var(--muted) / 0.5)",
+                                              border: "1px solid hsl(var(--border) / 0.4)",
+                                              color: "hsl(var(--muted-foreground))",
+                                            }}
+                                          >
+                                            {cat}
+                                          </span>
+                                        ))
+                                      ) : (
+                                        <span className="text-muted-foreground/40">No categories</span>
+                                      )}
+                                    </div>
+
+                                    {/* Primary / Fallback badge */}
+                                    <span
+                                      className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                      style={{
+                                        background: a.isPrimaryMatch
+                                          ? "hsl(143, 60%, 50% / 0.1)"
+                                          : "hsl(var(--muted) / 0.4)",
+                                        border: `1px solid ${a.isPrimaryMatch
+                                          ? "hsl(143, 60%, 50% / 0.3)"
+                                          : "hsl(var(--border) / 0.3)"}`,
+                                        color: a.isPrimaryMatch
+                                          ? "hsl(143, 60%, 50%)"
+                                          : "hsl(var(--muted-foreground))",
+                                      }}
+                                    >
+                                      {a.isPrimaryMatch ? "Primary" : "Fallback"}
+                                    </span>
+
+                                    {/* PPT link */}
+                                    {a.ppt.fileUrl && (
+                                      <a
+                                        href={a.ppt.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="shrink-0 text-[10px] underline underline-offset-2 transition-colors"
+                                        style={{ color: "hsl(var(--muted-foreground) / 0.6)" }}
+                                        onMouseEnter={(e) => {
+                                          (e.currentTarget as HTMLElement).style.color = "hsl(var(--accent))";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground) / 0.6)";
+                                        }}
+                                      >
+                                        View PPT ↗
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </motion.div>
+                        </td>
+                      </tr>
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* ── Footer ── */}
+      <div
+        className="px-4 py-2 shrink-0 flex items-center justify-between"
+        style={{ borderTop: "1px solid hsl(var(--border) / 0.3)" }}
+      >
+        <span className="text-xs text-muted-foreground">
+          {judges.length} judge{judges.length !== 1 ? "s" : ""}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {totalAssignments} total assignment{totalAssignments !== 1 ? "s" : ""}
+        </span>
+      </div>
     </div>
   );
 }
