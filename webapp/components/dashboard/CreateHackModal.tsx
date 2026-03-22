@@ -327,7 +327,7 @@ export default function CreateHack({ open, onClose, onCreate }: Props) {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. HackSelect AI 2026"
+                      placeholder="e.g. DevDraft AI 2026"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"

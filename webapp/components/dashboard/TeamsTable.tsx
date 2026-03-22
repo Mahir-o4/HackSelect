@@ -18,7 +18,8 @@ import PptUploadModal from "@/components/dashboard/PptUploadModal";
 import {
   ChevronDown, ChevronUp, ChevronsUpDown,
   Plus, Minus, UserPlus,
-  GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText, Upload
+  GitCompare, Pencil, SlidersHorizontal, Save, Search, FileText, Upload,
+  Users
 } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -90,6 +91,9 @@ interface TeamsTableProps {
   isFinalSaving?: boolean;
   onModify: (type: "recluster" | "reselect") => void;
   isSaved?: boolean;
+  isAllocated?: boolean;
+  onViewJudges?: () => void;
+  onAllocationDone?: () => void;
 }
 
 function SortHeader({ column, label }: { column: Column<Team, unknown>; label: string }) {
@@ -131,6 +135,9 @@ export default function TeamsTable({
   onFinalSave,
   isFinalSaving = false,
   isSaved = false,
+  isAllocated = false,
+  onViewJudges,
+  onAllocationDone
 }: TeamsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -477,277 +484,304 @@ export default function TeamsTable({
           <div className="w-px h-4 shrink-0" style={{ background: "hsl(var(--border))" }} />
 
           {/* Action buttons */}
-          {hasAnalysisRun && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {isSaved ? (
-                <>
-                  <button
-                    onClick={() => setShowPptUpload(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150"
-                    style={{
-                      background: "hsl(var(--accent))",
-                      color: "hsl(var(--accent-foreground))",
-                      borderColor: "transparent",
-                      boxShadow: "0 0 12px hsl(var(--accent) / 0.3)",
-                    }}
-                  >
-                    <Upload className="w-3 h-3" />
-                    Upload PPT
-                  </button>
+          {isSaved ? (
+            <div className="flex items-center gap-1.5">
+              {/* Upload PPT */}
+              <button
+                onClick={() => setShowPptUpload(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150"
+                style={{
+                  background: "hsl(var(--accent))",
+                  color: "hsl(var(--accent-foreground))",
+                  borderColor: "transparent",
+                  boxShadow: "0 0 12px hsl(var(--accent) / 0.3)",
+                }}
+              >
+                <Upload className="w-3 h-3" />
+                Upload PPT
+              </button>
 
-                  <PptUploadModal
-                    open={showPptUpload}
-                    onClose={() => setShowPptUpload(false)}
-                    hackathonId={teams[0]?.hackathonId ?? ""}
-                  />
-                </>
-              ) : !editMode ? (
-                <>
-                  {/* ── Modify dropdown ── */}
-                  <div ref={modifyRef} className="relative">
-                    <ActionBtn
-                      icon={<SlidersHorizontal className="w-3 h-3" />}
-                      label="Modify"
-                      onClick={() => setModifyOpen((v) => !v)}
-                      disabled={compareMode}
-                      active={modifyOpen}
-                    />
-                    <AnimatePresence>
-                      {modifyOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -4, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -4, scale: 0.97 }}
-                          transition={{ duration: 0.12 }}
-                          className="absolute right-0 top-full mt-1.5 z-50 flex flex-col overflow-hidden rounded-xl"
-                          style={{
-                            background: "hsl(var(--card))",
-                            border: "1px solid hsl(var(--border) / 0.6)",
-                            boxShadow: "0 8px 32px hsl(0 0% 0% / 0.3)",
-                            minWidth: "160px",
-                          }}
-                        >
-                          {[
-                            {
-                              type: "recluster" as const,
-                              label: "Re-cluster",
-                              description: "Re-run data source scoring",
-                              icon: <GitCompare className="w-3.5 h-3.5" />,
-                            },
-                            {
-                              type: "reselect" as const,
-                              label: "Re-selection",
-                              description: "Adjust team quota & levels",
-                              icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
-                            },
-                          ].map((opt, i) => (
-                            <button
-                              key={opt.type}
-                              onClick={() => {
-                                setModifyOpen(false);
-                                onModify(opt.type);
-                              }}
-                              className="flex items-start gap-3 px-3.5 py-3 text-left transition-colors duration-100"
-                              style={{
-                                borderBottom: i === 0 ? "1px solid hsl(var(--border) / 0.4)" : "none",
-                                color: "hsl(var(--muted-foreground))",
-                              }}
-                              onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.4)";
-                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
-                              }}
-                              onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLElement).style.background = "";
-                                (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
-                              }}
-                            >
-                              <span className="mt-0.5 shrink-0" style={{ color: "hsl(var(--accent))" }}>
-                                {opt.icon}
-                              </span>
-                              <div>
-                                <p className="text-xs font-medium text-foreground">{opt.label}</p>
-                                <p className="text-[10px] mt-0.5">{opt.description}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+              {/* Judges button — only after allocation */}
+              {isAllocated && (
+                <button
+                  onClick={onViewJudges}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all duration-150"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid hsl(var(--border) / 0.6)",
+                    color: "hsl(var(--muted-foreground))",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
+                    (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
+                    (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
+                    (e.currentTarget as HTMLElement).style.background = "transparent";
+                  }}
+                >
+                  <Users className="w-3 h-3" />
+                  Judges
+                </button>
+              )}
 
-                  <ActionBtn
-                    icon={<GitCompare className="w-3 h-3" />}
-                    label={compareMode ? "Exit Compare" : "Compare"}
-                    onClick={onCompare}
-                    active={compareMode}
-                  />
-                  <ActionBtn
-                    icon={<Pencil className="w-3 h-3" />}
-                    label="Edit"
-                    onClick={handleEditClick}
-                    disabled={compareMode}
-                  />
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+              <PptUploadModal
+                open={showPptUpload}
+                onClose={() => setShowPptUpload(false)}
+                hackathonId={teams[0]?.hackathonId ?? ""}
+                onAllocationDone={() => {
+                  setShowPptUpload(false);
+                  onAllocationDone?.();
+                }}
+              />
+            </div>
+          ) : !editMode ? (
+            <>
+              {/* ── Modify dropdown ── */}
+              <div ref={modifyRef} className="relative">
+                <ActionBtn
+                  icon={<SlidersHorizontal className="w-3 h-3" />}
+                  label="Modify"
+                  onClick={() => setModifyOpen((v) => !v)}
+                  disabled={compareMode}
+                  active={modifyOpen}
+                />
+                <AnimatePresence>
+                  {modifyOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                      transition={{ duration: 0.12 }}
+                      className="absolute right-0 top-full mt-1.5 z-50 flex flex-col overflow-hidden rounded-xl"
                       style={{
-                        background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
-                        color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
-                        border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border) / 0.6)",
+                        boxShadow: "0 8px 32px hsl(0 0% 0% / 0.3)",
+                        minWidth: "160px",
                       }}
                     >
-                      {selectedCount}/{totalSpotsLimit} teams
-                    </span>
-
-                    <ActionBtn
-                      icon={
-                        isSaving ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-3 h-3 rounded-full border border-current border-t-transparent"
-                          />
-                        ) : (
-                          <Save className="w-3 h-3" />
-                        )
-                      }
-                      label={isSaving ? "Saving..." : "Save Draft"}
-                      onClick={onSave}
-                      disabled={isSaving || isFinalSaving}
-                    />
-
-                    <ActionBtn
-                      icon={
-                        isFinalSaving ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-3 h-3 rounded-full border border-current border-t-transparent"
-                          />
-                        ) : (
-                          <Save className="w-3 h-3" />
-                        )
-                      }
-                      label={isFinalSaving ? "Saving..." : "Save"}
-                      onClick={() => setShowFinalSaveDialog(true)}
-                      accent
-                      disabled={isSaving || isFinalSaving}
-                    />
-                  </div>
-
-                  {/* ── Final Save Confirmation Dialog ── */}
-                  <AnimatePresence>
-                    {showFinalSaveDialog && (
-                      <>
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          className="fixed inset-0 z-40"
-                          style={{ background: "hsl(0 0% 0% / 0.5)" }}
-                          onClick={() => setShowFinalSaveDialog(false)}
-                        />
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.95, y: 8 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: 8 }}
-                          transition={{ duration: 0.18 }}
-                          className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+                      {[
+                        {
+                          type: "recluster" as const,
+                          label: "Re-cluster",
+                          description: "Re-run data source scoring",
+                          icon: <GitCompare className="w-3.5 h-3.5" />,
+                        },
+                        {
+                          type: "reselect" as const,
+                          label: "Re-selection",
+                          description: "Adjust team quota & levels",
+                          icon: <SlidersHorizontal className="w-3.5 h-3.5" />,
+                        },
+                      ].map((opt, i) => (
+                        <button
+                          key={opt.type}
+                          onClick={() => {
+                            setModifyOpen(false);
+                            onModify(opt.type);
+                          }}
+                          className="flex items-start gap-3 px-3.5 py-3 text-left transition-colors duration-100"
+                          style={{
+                            borderBottom: i === 0 ? "1px solid hsl(var(--border) / 0.4)" : "none",
+                            color: "hsl(var(--muted-foreground))",
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.4)";
+                            (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.background = "";
+                            (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
+                          }}
                         >
-                          <div
-                            className="pointer-events-auto w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
+                          <span className="mt-0.5 shrink-0" style={{ color: "hsl(var(--accent))" }}>
+                            {opt.icon}
+                          </span>
+                          <div>
+                            <p className="text-xs font-medium text-foreground">{opt.label}</p>
+                            <p className="text-[10px] mt-0.5">{opt.description}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <ActionBtn
+                icon={<GitCompare className="w-3 h-3" />}
+                label={compareMode ? "Exit Compare" : "Compare"}
+                onClick={onCompare}
+                active={compareMode}
+              />
+              <ActionBtn
+                icon={<Pencil className="w-3 h-3" />}
+                label="Edit"
+                onClick={handleEditClick}
+                disabled={compareMode}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-[10px] font-mono px-2 py-0.5 rounded-full"
+                  style={{
+                    background: isAtLimit ? "hsl(var(--destructive) / 0.1)" : "hsl(var(--accent) / 0.1)",
+                    color: isAtLimit ? "hsl(var(--destructive))" : "hsl(var(--accent))",
+                    border: `1px solid ${isAtLimit ? "hsl(var(--destructive) / 0.3)" : "hsl(var(--accent) / 0.3)"}`,
+                  }}
+                >
+                  {selectedCount}/{totalSpotsLimit} teams
+                </span>
+
+                <ActionBtn
+                  icon={
+                    isSaving ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                      />
+                    ) : (
+                      <Save className="w-3 h-3" />
+                    )
+                  }
+                  label={isSaving ? "Saving..." : "Save Draft"}
+                  onClick={onSave}
+                  disabled={isSaving || isFinalSaving}
+                />
+
+                <ActionBtn
+                  icon={
+                    isFinalSaving ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-3 h-3 rounded-full border border-current border-t-transparent"
+                      />
+                    ) : (
+                      <Save className="w-3 h-3" />
+                    )
+                  }
+                  label={isFinalSaving ? "Saving..." : "Save"}
+                  onClick={() => setShowFinalSaveDialog(true)}
+                  accent
+                  disabled={isSaving || isFinalSaving}
+                />
+              </div>
+
+              {/* ── Final Save Confirmation Dialog ── */}
+              <AnimatePresence>
+                {showFinalSaveDialog && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="fixed inset-0 z-40"
+                      style={{ background: "hsl(0 0% 0% / 0.5)" }}
+                      onClick={() => setShowFinalSaveDialog(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                      transition={{ duration: 0.18 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+                    >
+                      <div
+                        className="pointer-events-auto w-full max-w-sm rounded-2xl p-6 flex flex-col gap-4"
+                        style={{
+                          background: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border) / 0.6)",
+                          boxShadow: "0 24px 64px hsl(0 0% 0% / 0.5)",
+                        }}
+                      >
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                          style={{
+                            background: "hsl(var(--destructive) / 0.1)",
+                            border: "1px solid hsl(var(--destructive) / 0.3)",
+                          }}
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="hsl(var(--destructive))"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                          </svg>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <h3 className="text-base font-semibold text-foreground">
+                            Finalise team selection?
+                          </h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            You <span className="font-medium text-foreground">cannot change</span> the
+                            selected teams after this. This action is final and cannot be undone.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => setShowFinalSaveDialog(false)}
+                            className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                             style={{
-                              background: "hsl(var(--card))",
+                              background: "transparent",
                               border: "1px solid hsl(var(--border) / 0.6)",
-                              boxShadow: "0 24px 64px hsl(0 0% 0% / 0.5)",
+                              color: "hsl(var(--muted-foreground))",
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
+                              (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
+                              (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
                             }}
                           >
-                            <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                              style={{
-                                background: "hsl(var(--destructive) / 0.1)",
-                                border: "1px solid hsl(var(--destructive) / 0.3)",
-                              }}
-                            >
-                              <svg
-                                className="w-5 h-5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="hsl(var(--destructive))"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                <line x1="12" y1="9" x2="12" y2="13" />
-                                <line x1="12" y1="17" x2="12.01" y2="17" />
-                              </svg>
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <h3 className="text-base font-semibold text-foreground">
-                                Finalise team selection?
-                              </h3>
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                You <span className="font-medium text-foreground">cannot change</span> the
-                                selected teams after this. This action is final and cannot be undone.
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 pt-1">
-                              <button
-                                onClick={() => setShowFinalSaveDialog(false)}
-                                className="flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                                style={{
-                                  background: "transparent",
-                                  border: "1px solid hsl(var(--border) / 0.6)",
-                                  color: "hsl(var(--muted-foreground))",
-                                }}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";
-                                  (e.currentTarget as HTMLElement).style.color = "hsl(var(--foreground))";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border) / 0.6)";
-                                  (e.currentTarget as HTMLElement).style.color = "hsl(var(--muted-foreground))";
-                                }}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setShowFinalSaveDialog(false);
-                                  onFinalSave();
-                                }}
-                                className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                                style={{
-                                  background: "hsl(var(--destructive))",
-                                  color: "hsl(var(--destructive-foreground))",
-                                  border: "1px solid transparent",
-                                  boxShadow: "0 0 16px hsl(var(--destructive) / 0.3)",
-                                }}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLElement).style.opacity = "0.9";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLElement).style.opacity = "1";
-                                }}
-                              >
-                                Confirm & Save
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </>
-              )}
-            </div>
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowFinalSaveDialog(false);
+                              onFinalSave();
+                            }}
+                            className="flex-1 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                            style={{
+                              background: "hsl(var(--destructive))",
+                              color: "hsl(var(--destructive-foreground))",
+                              border: "1px solid transparent",
+                              boxShadow: "0 0 16px hsl(var(--destructive) / 0.3)",
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLElement).style.opacity = "0.9";
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLElement).style.opacity = "1";
+                            }}
+                          >
+                            Confirm & Save
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </>
           )}
         </div>
 
@@ -1101,6 +1135,6 @@ export default function TeamsTable({
           </div>
         </div>
       </div>
-    </TooltipProvider>
+    </TooltipProvider >
   );
 }

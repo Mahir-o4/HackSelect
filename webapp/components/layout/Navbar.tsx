@@ -29,8 +29,8 @@ const Navbar = ({ type = "default", navs = [], link }: NavbarProps) => {
 
         {/* Brand */}
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-foreground">Hack</span>
-          <span className="text-lg font-bold text-accent">Select</span>
+          <span className="text-lg font-bold text-foreground">Dev</span>
+          <span className="text-lg font-bold text-accent">Draft</span>
         </div>
 
         {/* Nav links — secondary only */}

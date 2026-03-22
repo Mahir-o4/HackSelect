@@ -17,7 +17,7 @@ const ForOrganizersSection = () => (
             Quota-Based Team Selection
           </h2>
           <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
-            Define exactly what your hackathon needs. Set quotas by skill domain — AI, Web3, Fullstack, Design — and let HackSelect fill your teams with the right mix of talent.
+            Define exactly what your hackathon needs. Set quotas by skill domain — AI, Web3, Fullstack, Design — and let DevDraft fill your teams with the right mix of talent.
           </p>
 
           <div className="space-y-5">
